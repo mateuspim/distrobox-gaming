@@ -22,6 +22,20 @@ and reproducible **NexusMods mod-set** roles per game. See `docs/nexusmods.md`,
 
 ## Quick Start
 
+### Omarchy/Odin core profile
+
+This fork includes a staged profile for the `mateuspim` Omarchy workstation.
+It keeps Steam native and starts with the portable emulator tier only. See
+[`docs/omarchy-odin.md`](docs/omarchy-odin.md) before provisioning.
+
+```sh
+cd ansible
+ansible-playbook --syntax-check site-core.yml -e @profiles/odin.yml
+ansible-playbook site-core.yml -e @profiles/odin.yml
+```
+
+### Upstream full setup
+
 ```sh
 cd ansible
 ansible-galaxy collection install -r collections/requirements.yml

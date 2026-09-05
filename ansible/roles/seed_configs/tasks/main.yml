@@ -11,8 +11,12 @@
 - ansible.builtin.include_tasks: duckstation.yml
 - ansible.builtin.include_tasks: flycast.yml
 - ansible.builtin.include_tasks: supermodel.yml
+  when: dg_advanced_emulators_enabled | bool
 - ansible.builtin.include_tasks: xemu.yml
+  when: dg_advanced_emulators_enabled | bool
 - ansible.builtin.include_tasks: shadps4.yml
+  when: dg_advanced_emulators_enabled | bool
 - ansible.builtin.include_tasks: cemu.yml
+  when: dg_advanced_emulators_enabled | bool
 - ansible.builtin.include_tasks: retroarch.yml
 - ansible.builtin.include_tasks: melonds.yml

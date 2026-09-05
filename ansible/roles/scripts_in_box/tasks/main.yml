@@ -37,3 +37,4 @@
     src: steam-launch
     dest: "{{ dg_box_home }}/bin/steam-launch"
     mode: "0755"
+  when: dg_install_steam | bool

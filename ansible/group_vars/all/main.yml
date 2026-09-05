@@ -4,6 +4,12 @@
 dg_box_name: gaming
 dg_image: "archlinux:latest"
 
+# Feature switches. Keep upstream's all-in-one behavior by default; portable
+# machine profiles can disable Steam (when it is native on the host) and the
+# firmware-heavy/experimental emulator tier.
+dg_install_steam: true
+dg_advanced_emulators_enabled: true
+
 # NAS requires UID/GID 1026 for file access.
 dg_host_uid: 1026
 dg_host_gid: 1026

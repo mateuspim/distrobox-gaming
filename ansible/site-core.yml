@@ -1,0 +1,14 @@
+---
+- name: Portable core emulator distrobox setup
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - { role: check_host,         tags: [check] }
+    - { role: create_box,         tags: [create] }
+    - { role: bootstrap_packages, tags: [bootstrap] }
+    - { role: seed_configs,       tags: [configure, configs] }
+    - { role: scripts_in_box,     tags: [configure, scripts] }
+    - { role: configure_esde,     tags: [configure, esde] }
+    - { role: shell_config,       tags: [configure, shell] }
+    - { role: desktop_apps,       tags: [configure, desktop] }

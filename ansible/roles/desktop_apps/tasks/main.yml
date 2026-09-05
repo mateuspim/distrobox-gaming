@@ -24,6 +24,17 @@
   loop_control:
     loop_var: launcher
     label: "{{ launcher.name }}"
+  when: launcher.enabled | default(true) | bool
+
+- name: Remove disabled generic emulator launcher desktop entries
+  ansible.builtin.file:
+    path: "{{ dg_desktop_render_dir }}/{{ launcher.name }}.desktop"
+    state: absent
+  loop: "{{ dg_emulator_launchers }}"
+  loop_control:
+    loop_var: launcher
+    label: "{{ launcher.name }}"
+  when: not (launcher.enabled | default(true) | bool)
 
 - name: Render Xenia Manager desktop entry
   ansible.builtin.template:

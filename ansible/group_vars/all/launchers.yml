@@ -89,6 +89,7 @@ dg_emulator_launchers:
 
   - name: gaming-steam
     display_name: "Steam (on {{ dg_box_name }})"
+    enabled: "{{ dg_install_steam }}"
     exec: "{{ dg_box_home }}/bin/steam-launch"
     # Do not force GPU env for Steam itself: global LD_LIBRARY_PATH changes can
     # crash the 32-bit Steam updater/client, and forcing VK_ICD_FILENAMES breaks

@@ -19,6 +19,7 @@
     owner: "{{ dg_host_uid }}"
     group: "{{ dg_host_gid }}"
     mode: "0755"
+  when: dg_install_steam | bool
 
 - name: Build distrobox create command
   # Note on :ro for NFS paths: when the host has the same NFS share
@@ -30,7 +31,8 @@
   ansible.builtin.set_fact:
     _distrobox_volumes: >-
       --volume {{ dg_emudeck_root }}:{{ dg_emudeck_root }}:ro,rprivate
-      --volume {{ dg_steam_root }}:{{ dg_steam_root }}:rw
+      {{ '--volume ' + dg_steam_root + ':' + dg_steam_root + ':rw'
+         if dg_install_steam | bool else '' }}
       {{ '--volume ' + dg_box_root + ':' + dg_box_root + ':rw'
          if dg_box_root != dg_box_home else '' }}
 

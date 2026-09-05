@@ -1,6 +1,6 @@
 # Package lists for the gaming distrobox.
 
-dg_pacman_packages:
+dg_pacman_packages_base:
   - base-devel
   - git
   - curl
@@ -45,9 +45,11 @@ dg_pacman_packages:
   - starship
   - retroarch
   - python-cryptography
-  - steam
 
-dg_aur_packages:
+dg_pacman_packages: >-
+  {{ dg_pacman_packages_base + (['steam'] if dg_install_steam | bool else []) }}
+
+dg_core_aur_packages:
   - duckstation-qt-bin
   # pcsx2-latest-bin tracks the rolling 2.7.x AppImage (currently 2.7.274).
   # The stable 2.6.3 (pure `pcsx2`) hard-crashes on GT3 at the car-showcase
@@ -56,11 +58,15 @@ dg_aur_packages:
   # PKGBUILD had a URL mismatch; upstream has since corrected the build
   # (verified installing 2.7.274 successfully April 2026).
   - pcsx2-latest-bin
+  - melonds-bin
+  - evsieve
+  - flycast-git
+  - emulationstation-de
+
+dg_advanced_aur_packages:
   - rpcs3-bin
   - eden-bin
   - cemu-bin
-  - melonds-bin
-  - evsieve
   - xemu-bin
   # vita3k-bin: SKIPPED. Its AUR PKGBUILD fails to build (the nightly zip
   # dropped org.vita3k.vita3k.metainfo.xml, so package() errors out) —
@@ -70,16 +76,18 @@ dg_aur_packages:
   # the wasted build attempt every run.
   # - vita3k-bin
   - shadps4-bin
-  - flycast-git
   # Sega Model 3 arcade (roms_rare/model3). Plain `supermodel` is the
   # maintained snapshot package; supermodel-git is orphaned, and
   # supermodel-bin is an unrelated AI tool — do not "upgrade" to it.
   - supermodel
-  - emulationstation-de
   # ROM / patch tools (moved off the host — no desktop use case there)
   - 3dsconv
   - extract-xiso-bin   # source -bin: the vanilla -source pkg fails to compile on modern gcc
   - flips
+
+dg_aur_packages: >-
+  {{ dg_core_aur_packages +
+     (dg_advanced_aur_packages if dg_advanced_emulators_enabled | bool else []) }}
 
 dg_xenia_pacman_packages:
   - wine
