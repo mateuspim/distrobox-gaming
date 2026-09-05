@@ -26,7 +26,9 @@ and reproducible **NexusMods mod-set** roles per game. See `docs/nexusmods.md`,
 
 This fork includes a staged profile for the `mateuspim` Omarchy workstation.
 It keeps Steam native and starts with the portable emulator tier only. See
-[`docs/omarchy-odin.md`](docs/omarchy-odin.md) before provisioning.
+[`docs/omarchy-odin.md`](docs/omarchy-odin.md) before provisioning. To resume
+the installation in a fresh session, start with
+[`docs/handoff-ansible-install.md`](docs/handoff-ansible-install.md).
 
 ```sh
 cd ansible
