@@ -179,8 +179,22 @@
           cache="{{ dg_nvidia_lib32_cache_dir }}"
           extract="{{ dg_nvidia_lib32_extract_dir }}"
           mkdir -p "$cache" "$extract"
+          if [ -f "$cache/$pkg" ] && ! tar -tf "$cache/$pkg" >/dev/null 2>&1; then
+            mv -f "$cache/$pkg" "$cache/$pkg.part"
+          fi
           if [ ! -f "$cache/$pkg" ]; then
-            curl -fL -o "$cache/$pkg" "{{ dg_nvidia_lib32_archive_base_url }}/$pkg"
+            if ! tar -tf "$cache/$pkg.part" >/dev/null 2>&1; then
+              touch "$cache/$pkg.part"
+              curl --http1.1 -fL --retry 5 --retry-delay 2 --retry-all-errors \
+                --continue-at - -o "$cache/$pkg.part" \
+                "{{ dg_nvidia_lib32_archive_base_url }}/$pkg"
+            fi
+            if ! tar -tf "$cache/$pkg.part" >/dev/null 2>&1; then
+              rm -f "$cache/$pkg.part"
+              printf "%s\n" "ERROR: downloaded $pkg is not a complete archive" >&2
+              exit 1
+            fi
+            mv "$cache/$pkg.part" "$cache/$pkg"
           fi
           rm -rf "$extract.tmp"
           mkdir -p "$extract.tmp"
@@ -194,6 +208,10 @@
           mv "$extract.tmp" "$extract"
         '
       changed_when: true
+      register: _nvidia_lib32_extract
+      retries: 3
+      delay: 5
+      until: _nvidia_lib32_extract.rc == 0
       when:
         - dg_nvidia_lib32_workaround_enabled | bool
         - _nvidia_ver.rc == 0
