@@ -40,6 +40,22 @@ dg_bios_root        → EmuDeck/Emulation/bios            # per-emulator BIOS fi
 
 You source and copy ROMs into these trees yourself.
 
+## Nintendo DS BIOS and firmware
+
+**Variable:** `dg_melonds_bios_files` under `dg_bios_root`.
+
+The standalone melonDS configuration recognizes these optional files:
+
+```
+bios7.bin
+bios9.bin
+dsfirmware.bin
+```
+
+When present, the role copies them into the box-local melonDS configuration
+because the emulator may modify its firmware copy. Missing files produce a
+warning and do not block the rest of the core configuration.
+
 ## PCSX2 texture packs — GT4 & friends
 
 **Variable:** `dg_pcsx2_ps2_root` (default `{{ dg_external_games_root }}/ps2`).
