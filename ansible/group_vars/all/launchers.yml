@@ -43,7 +43,7 @@ dg_emulator_launchers:
 
   - name: gaming-ppsspp
     display_name: "PPSSPP (on {{ dg_box_name }})"
-    exec: PPSSPPQt
+    exec: PPSSPPSDL
     icon: ppsspp
     comment: "PSP emulator"
     wm_class: ppsspp

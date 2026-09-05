@@ -199,7 +199,9 @@ Verify the intended package boundary:
 
 ```sh
 distrobox-enter -n gaming -- sh -lc \
-  'command -v es-de retroarch dolphin-emu duckstation-qt pcsx2-qt PPSSPPQt flycast melonDS'
+  'for cmd in es-de retroarch dolphin-emu duckstation-qt pcsx2-qt PPSSPPSDL flycast melonDS; do
+     command -v "$cmd" || exit 1
+   done'
 distrobox-enter -n gaming -- sh -lc \
   'for p in steam rpcs3-bin eden-bin cemu-bin xemu-bin shadps4-bin supermodel; do pacman -Q "$p" 2>/dev/null && exit 1 || true; done'
 distrobox-enter -n gaming -- vulkaninfo --summary
