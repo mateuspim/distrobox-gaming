@@ -9,6 +9,7 @@ dg_image: "archlinux:latest"
 # firmware-heavy/experimental emulator tier.
 dg_install_steam: true
 dg_advanced_emulators_enabled: true
+dg_optional_desktop_entries_enabled: true
 
 # NAS requires UID/GID 1026 for file access.
 dg_host_uid: 1026

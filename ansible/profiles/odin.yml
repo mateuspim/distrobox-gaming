@@ -30,5 +30,9 @@ dg_install_steam: false
 # and melonDS. Enable the advanced tier after the core GPU/audio/input checks.
 dg_advanced_emulators_enabled: false
 
+# Optional game ports and separately installed emulator launchers are outside
+# this core-only milestone.
+dg_optional_desktop_entries_enabled: false
+
 # RTX 4080 dGPU plus AMD integrated graphics.
 dg_nvidia_enabled: true

@@ -49,6 +49,7 @@ dg_emulator_launchers:
     wm_class: ppsspp
 
   - name: gaming-rpcs3
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     display_name: "RPCS3 (on {{ dg_box_name }})"
     exec: rpcs3
     icon: rpcs3
@@ -56,6 +57,7 @@ dg_emulator_launchers:
     wm_class: rpcs3
 
   - name: gaming-xemu
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     display_name: "xemu (on {{ dg_box_name }})"
     # Wrapper at $HOME/bin/xemu — re-asserts surface_scale in
     # xemu.toml before handing off to /opt/xemu/bin/xemu, because
@@ -67,6 +69,7 @@ dg_emulator_launchers:
     wm_class: xemu
 
   - name: gaming-eden
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     display_name: "Eden (on {{ dg_box_name }})"
     exec: "env -u QT_STYLE_OVERRIDE eden"
     icon: eden
@@ -74,6 +77,7 @@ dg_emulator_launchers:
     wm_class: eden
 
   - name: gaming-cemu
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     display_name: "Cemu (on {{ dg_box_name }})"
     exec: cemu
     icon: info.cemu.Cemu
@@ -81,6 +85,7 @@ dg_emulator_launchers:
     wm_class: cemu
 
   - name: gaming-vita3k
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     display_name: "Vita3K (on {{ dg_box_name }})"
     exec: vita3k
     icon: vita3k
@@ -101,6 +106,7 @@ dg_emulator_launchers:
     wm_class: Steam
 
   - name: gaming-azahar
+    enabled: "{{ dg_optional_desktop_entries_enabled }}"
     display_name: "Azahar (on {{ dg_box_name }})"
     exec: "{{ dg_box_home }}/bin/azahar-launch"
     icon: org.azahar_emu.azahar
@@ -113,3 +119,29 @@ dg_emulator_launchers:
     icon: retroarch
     comment: "Multi-system libretro emulator frontend"
     wm_class: retroarch
+
+# Desktop files backed by dedicated templates. The full personalized setup
+# keeps the catalog enabled by default; portable profiles can restrict it to
+# the launchers provided by their selected package tier.
+dg_desktop_template_entries:
+  - { name: gaming-shadps4-gui.desktop, enabled: "{{ dg_advanced_emulators_enabled }}" }
+  - { name: gaming-flycast.desktop, enabled: true }
+  - { name: gaming-eden-cheats-manager.desktop, enabled: "{{ dg_advanced_emulators_enabled }}" }
+  - { name: gaming-xenia-manager.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-unleashed-recomp.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-sonic-p06.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-dklr.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-7th-heaven.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-ffvii-7th-heaven.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-render96ex.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-spaghettikart.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-ship-of-harkinian.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-2ship2harkinian.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-starship.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-dusk.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-doom2-ray-traced.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-wipeout-pe.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-cannonball.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-smb-remastered.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-gdiffuser.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }
+  - { name: gaming-mph-recomp.desktop, enabled: "{{ dg_optional_desktop_entries_enabled }}" }

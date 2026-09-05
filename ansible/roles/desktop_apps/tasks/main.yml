@@ -5,15 +5,26 @@
     state: directory
     mode: "0755"
 
-- name: Render core desktop entry templates
+- name: Render enabled desktop entry templates
   ansible.builtin.template:
-    src: "{{ item }}.j2"
-    dest: "{{ dg_desktop_render_dir }}/{{ item }}"
+    src: "{{ desktop_entry.name }}.j2"
+    dest: "{{ dg_desktop_render_dir }}/{{ desktop_entry.name }}"
     mode: "0644"
-  loop:
-    - gaming-shadps4-gui.desktop
-    - gaming-flycast.desktop
-    - gaming-eden-cheats-manager.desktop
+  loop: "{{ dg_desktop_template_entries }}"
+  loop_control:
+    loop_var: desktop_entry
+    label: "{{ desktop_entry.name }}"
+  when: desktop_entry.enabled | default(true) | bool
+
+- name: Remove disabled rendered desktop entry templates
+  ansible.builtin.file:
+    path: "{{ dg_desktop_render_dir }}/{{ desktop_entry.name }}"
+    state: absent
+  loop: "{{ dg_desktop_template_entries }}"
+  loop_control:
+    loop_var: desktop_entry
+    label: "{{ desktop_entry.name }}"
+  when: not (desktop_entry.enabled | default(true) | bool)
 
 - name: Render generic emulator launcher desktop entries
   ansible.builtin.template:
@@ -36,113 +47,25 @@
     label: "{{ launcher.name }}"
   when: not (launcher.enabled | default(true) | bool)
 
-- name: Render Xenia Manager desktop entry
-  ansible.builtin.template:
-    src: gaming-xenia-manager.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-xenia-manager.desktop"
-    mode: "0644"
+- name: Remove disabled generic emulator launchers from host applications
+  ansible.builtin.file:
+    path: "{{ dg_host_applications_dir }}/{{ launcher.name }}.desktop"
+    state: absent
+  loop: "{{ dg_emulator_launchers }}"
+  loop_control:
+    loop_var: launcher
+    label: "{{ launcher.name }}"
+  when: not (launcher.enabled | default(true) | bool)
 
-- name: Render Unleashed Recompiled desktop entry
-  ansible.builtin.template:
-    src: gaming-unleashed-recomp.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-unleashed-recomp.desktop"
-    mode: "0644"
-
-- name: Render Sonic P-06 desktop entry
-  ansible.builtin.template:
-    src: gaming-sonic-p06.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-sonic-p06.desktop"
-    mode: "0644"
-
-- name: Render Donkey Kong Land Remake desktop entry
-  ansible.builtin.template:
-    src: gaming-dklr.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-dklr.desktop"
-    mode: "0644"
-
-- name: Render Final Fantasy VII 7th Heaven desktop entry
-  ansible.builtin.template:
-    src: gaming-7th-heaven.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-7th-heaven.desktop"
-    mode: "0644"
-
-- name: Render Final Fantasy VII through 7th Heaven desktop entry
-  ansible.builtin.template:
-    src: gaming-ffvii-7th-heaven.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-ffvii-7th-heaven.desktop"
-    mode: "0644"
-
-- name: Render Render96ex desktop entry
-  ansible.builtin.template:
-    src: gaming-render96ex.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-render96ex.desktop"
-    mode: "0644"
-
-- name: Render SpaghettiKart desktop entry
-  ansible.builtin.template:
-    src: gaming-spaghettikart.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-spaghettikart.desktop"
-    mode: "0644"
-
-- name: Render Ship of Harkinian desktop entry
-  ansible.builtin.template:
-    src: gaming-ship-of-harkinian.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-ship-of-harkinian.desktop"
-    mode: "0644"
-
-- name: Render 2Ship2Harkinian desktop entry
-  ansible.builtin.template:
-    src: gaming-2ship2harkinian.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-2ship2harkinian.desktop"
-    mode: "0644"
-
-- name: Render Starship desktop entry
-  ansible.builtin.template:
-    src: gaming-starship.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-starship.desktop"
-    mode: "0644"
-
-- name: Render Dusk desktop entry
-  ansible.builtin.template:
-    src: gaming-dusk.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-dusk.desktop"
-    mode: "0644"
-
-- name: Render Doom II Ray Traced desktop entry
-  ansible.builtin.template:
-    src: gaming-doom2-ray-traced.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-doom2-ray-traced.desktop"
-    mode: "0644"
-
-- name: Render WipEout Phantom Edition desktop entry
-  ansible.builtin.template:
-    src: gaming-wipeout-pe.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-wipeout-pe.desktop"
-    mode: "0644"
-
-- name: Render CannonBall desktop entry
-  ansible.builtin.template:
-    src: gaming-cannonball.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-cannonball.desktop"
-    mode: "0644"
-
-- name: Render Super Mario Bros. Remastered desktop entry
-  ansible.builtin.template:
-    src: gaming-smb-remastered.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-smb-remastered.desktop"
-    mode: "0644"
-
-- name: Render G-Diffuser (F-Zero X) desktop entry
-  ansible.builtin.template:
-    src: gaming-gdiffuser.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-gdiffuser.desktop"
-    mode: "0644"
-
-- name: Render Metroid Prime Hunters Recomp desktop entry
-  ansible.builtin.template:
-    src: gaming-mph-recomp.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-mph-recomp.desktop"
-    mode: "0644"
+- name: Remove disabled template launchers from host applications
+  ansible.builtin.file:
+    path: "{{ dg_host_applications_dir }}/{{ desktop_entry.name }}"
+    state: absent
+  loop: "{{ dg_desktop_template_entries }}"
+  loop_control:
+    loop_var: desktop_entry
+    label: "{{ desktop_entry.name }}"
+  when: not (desktop_entry.enabled | default(true) | bool)
 
 - name: Remove obsolete rendered desktop entries
   ansible.builtin.file:
