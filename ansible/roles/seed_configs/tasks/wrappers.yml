@@ -16,6 +16,7 @@
     dest: "{{ dg_box_home }}/bin/supermodel-launch"
     mode: "0755"
     backup: true
+  when: dg_advanced_emulators_enabled | bool
 
 - name: Install xenia-canary-launch wrapper
   # ES-DE bridge that resolves a ROM path to its per-game config via
@@ -27,6 +28,7 @@
     dest: "{{ dg_box_home }}/bin/xenia-canary-launch"
     mode: "0755"
     backup: true
+  when: dg_optional_apps_enabled | bool
 
 - name: Install shadps4-launch wrapper
   # ES-DE bridge for multi-game PS4 support. Derives the CUSA title ID
@@ -38,6 +40,7 @@
     dest: "{{ dg_box_home }}/bin/shadps4-launch"
     mode: "0755"
     backup: true
+  when: dg_advanced_emulators_enabled | bool
 
 - name: Install azahar-launch wrapper
   # Runs azahar with Select+L1/R1 mapped to Quick Load/Save via an
@@ -48,6 +51,20 @@
     dest: "{{ dg_box_home }}/bin/azahar-launch"
     mode: "0755"
     backup: true
+  when: dg_optional_apps_enabled | bool
+
+- name: Remove disabled optional emulator wrappers
+  ansible.builtin.file:
+    path: "{{ dg_box_home }}/bin/{{ item.name }}"
+    state: absent
+  loop:
+    - { name: supermodel-launch, enabled: "{{ dg_advanced_emulators_enabled }}" }
+    - { name: xenia-canary-launch, enabled: "{{ dg_optional_apps_enabled }}" }
+    - { name: shadps4-launch, enabled: "{{ dg_advanced_emulators_enabled }}" }
+    - { name: azahar-launch, enabled: "{{ dg_optional_apps_enabled }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  when: not (item.enabled | bool)
 
 - name: Install melonds-launch wrapper
   # Runs melonDS with the 8BitDo left stick synthesized onto the DS

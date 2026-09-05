@@ -14,4 +14,6 @@
 
 - ansible.builtin.include_tasks: media-symlinks.yml
 - ansible.builtin.include_tasks: ps4-gamelist.yml
+  when: dg_advanced_emulators_enabled | bool
 - ansible.builtin.include_tasks: arcade-gamelists.yml
+  when: dg_optional_apps_enabled | bool or dg_advanced_emulators_enabled | bool

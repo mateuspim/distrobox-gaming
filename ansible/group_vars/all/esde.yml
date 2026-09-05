@@ -19,6 +19,7 @@ dg_esde_arcade_clone_systems:
 
 dg_esde_systems:
   - name: switch
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     fullname: Nintendo Switch
     path: "{{ dg_emudeck_root }}/roms_heavy/switch"
     extension: ".nca .NCA .nro .NRO .nso .NSO .nsp .NSP .xci .XCI"
@@ -90,6 +91,7 @@ dg_esde_systems:
     theme: psp
 
   - name: ps3
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     fullname: Sony PlayStation 3
     # Extracted-folder dumps: each game is a directory named
     # "<Title>.ps3" containing PS3_GAME/USRDIR/EBOOT.BIN. ES-DE treats
@@ -106,6 +108,7 @@ dg_esde_systems:
     theme: ps3
 
   - name: ps4
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     fullname: Sony PlayStation 4
     # Multi-game path: every <ps4_root>/CUSA_xxxxx/eboot.bin is a game.
     # Display names come from a generated gamelist.xml that reads each
@@ -121,6 +124,7 @@ dg_esde_systems:
     theme: ps4
 
   - name: xbox
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     fullname: Microsoft Xbox
     path: "{{ dg_emudeck_root }}/roms_heavy/xbox"
     extension: ".iso .ISO .xiso .XISO"
@@ -134,6 +138,7 @@ dg_esde_systems:
     theme: xbox
 
   - name: n3ds
+    enabled: "{{ dg_optional_apps_enabled }}"
     fullname: Nintendo 3DS
     # Absolute path — 3DS ROMs live under dg_rom_heavy_root with the
     # rest of the larger systems (PS3, GameCube, Wii, etc.).
@@ -145,6 +150,7 @@ dg_esde_systems:
     theme: n3ds
 
   - name: xbox360
+    enabled: "{{ dg_optional_apps_enabled }}"
     fullname: Microsoft Xbox 360
     # Multi-game path: every ISO / default.xex under roms_heavy/xbox360
     # is a launchable title. Modded subdirs (FM2/FM3/FM4 Project Forza
@@ -166,6 +172,7 @@ dg_esde_systems:
     theme: xbox360
 
   - name: model2
+    enabled: "{{ dg_optional_apps_enabled }}"
     fullname: Sega Model 2
     path: "{{ dg_emudeck_root }}/roms_rare/model2"
     extension: ".zip .ZIP"
@@ -181,6 +188,7 @@ dg_esde_systems:
     theme: model2
 
   - name: model1
+    enabled: "{{ dg_optional_apps_enabled }}"
     fullname: Sega Model 1
     path: "{{ dg_emudeck_root }}/roms_rare/model1"
     extension: ".zip .ZIP"
@@ -190,6 +198,7 @@ dg_esde_systems:
     theme: model1
 
   - name: model3
+    enabled: "{{ dg_advanced_emulators_enabled }}"
     fullname: Sega Model 3
     path: "{{ dg_emudeck_root }}/roms_rare/model3"
     extension: ".zip .ZIP"
@@ -398,6 +407,7 @@ dg_esde_systems:
   # wrapper (install_openbor). ES-DE's stock 'openbor' system expects one
   # AppImage per game; ours is pak-based. See docs/openbor.md.
   - name: openbor
+    enabled: "{{ dg_optional_apps_enabled }}"
     fullname: OpenBOR Game Engine
     path: "{{ dg_emudeck_root }}/roms_mid/openbor"
     extension: ".pak .PAK"
