@@ -23,6 +23,7 @@
   ansible.builtin.include_role:
     name: seed_configs
     tasks_from: shadps4.yml
+  when: dg_shadps4_seed_game_profiles_enabled | bool
 
 - name: Refresh desktop launchers
   ansible.builtin.include_role:

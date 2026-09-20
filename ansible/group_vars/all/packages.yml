@@ -63,10 +63,15 @@ dg_core_aur_packages:
   - flycast-git
   - emulationstation-de
 
+dg_selected_console_aur_packages: >-
+  {{
+    (['rpcs3-bin'] if dg_rpcs3_enabled | bool else []) +
+    (['eden-bin'] if dg_eden_enabled | bool else []) +
+    (['cemu-bin'] if dg_cemu_enabled | bool else []) +
+    (['shadps4-bin'] if dg_shadps4_enabled | bool else [])
+  }}
+
 dg_advanced_aur_packages:
-  - rpcs3-bin
-  - eden-bin
-  - cemu-bin
   - xemu-bin
   # vita3k-bin: SKIPPED. Its AUR PKGBUILD fails to build (the nightly zip
   # dropped org.vita3k.vita3k.metainfo.xml, so package() errors out) —
@@ -75,7 +80,6 @@ dg_advanced_aur_packages:
   # bootstrap AUR install already tolerates it failing, this just avoids
   # the wasted build attempt every run.
   # - vita3k-bin
-  - shadps4-bin
   # Sega Model 3 arcade (roms_rare/model3). Plain `supermodel` is the
   # maintained snapshot package; supermodel-git is orphaned, and
   # supermodel-bin is an unrelated AI tool — do not "upgrade" to it.
@@ -86,7 +90,7 @@ dg_advanced_aur_packages:
   - flips
 
 dg_aur_packages: >-
-  {{ dg_core_aur_packages +
+  {{ dg_core_aur_packages + dg_selected_console_aur_packages +
      (dg_advanced_aur_packages if dg_advanced_emulators_enabled | bool else []) }}
 
 dg_xenia_pacman_packages:

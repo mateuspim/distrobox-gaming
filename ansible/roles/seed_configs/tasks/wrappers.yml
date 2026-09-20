@@ -40,7 +40,7 @@
     dest: "{{ dg_box_home }}/bin/shadps4-launch"
     mode: "0755"
     backup: true
-  when: dg_advanced_emulators_enabled | bool
+  when: dg_shadps4_enabled | bool
 
 - name: Install azahar-launch wrapper
   # Runs azahar with Select+L1/R1 mapped to Quick Load/Save via an
@@ -60,7 +60,7 @@
   loop:
     - { name: supermodel-launch, enabled: "{{ dg_advanced_emulators_enabled }}" }
     - { name: xenia-canary-launch, enabled: "{{ dg_optional_apps_enabled }}" }
-    - { name: shadps4-launch, enabled: "{{ dg_advanced_emulators_enabled }}" }
+    - { name: shadps4-launch, enabled: "{{ dg_shadps4_enabled }}" }
     - { name: azahar-launch, enabled: "{{ dg_optional_apps_enabled }}" }
   loop_control:
     label: "{{ item.name }}"

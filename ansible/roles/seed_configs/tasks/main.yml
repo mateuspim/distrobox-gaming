@@ -15,8 +15,10 @@
 - ansible.builtin.include_tasks: xemu.yml
   when: dg_advanced_emulators_enabled | bool
 - ansible.builtin.include_tasks: shadps4.yml
-  when: dg_advanced_emulators_enabled | bool
+  when:
+    - dg_shadps4_enabled | bool
+    - dg_shadps4_seed_game_profiles_enabled | bool
 - ansible.builtin.include_tasks: cemu.yml
-  when: dg_advanced_emulators_enabled | bool
+  when: dg_cemu_enabled | bool
 - ansible.builtin.include_tasks: retroarch.yml
 - ansible.builtin.include_tasks: melonds.yml

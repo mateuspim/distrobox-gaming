@@ -27,8 +27,13 @@ dg_bios_root: "{{ dg_emudeck_root }}/Emulation/bios"
 dg_install_steam: false
 
 # Start with ES-DE, RetroArch, Dolphin, DuckStation, PCSX2, PPSSPP, Flycast,
-# and melonDS. Enable the advanced tier after the core GPU/audio/input checks.
+# and melonDS. Keep the broad advanced tier disabled; select only the console
+# emulators that are ready for this box.
 dg_advanced_emulators_enabled: false
+dg_eden_enabled: true
+dg_shadps4_enabled: true
+dg_rpcs3_enabled: true
+dg_cemu_enabled: true
 
 # Optional game ports and separately installed emulator launchers are outside
 # this core-only milestone.

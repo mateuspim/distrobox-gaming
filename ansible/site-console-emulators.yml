@@ -1,0 +1,11 @@
+---
+- name: Selected console emulator additions for an existing gaming distrobox
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - { role: bootstrap_packages, tags: [bootstrap, packages] }
+    - { role: seed_configs,       tags: [configure, configs] }
+    - { role: scripts_in_box,     tags: [configure, scripts] }
+    - { role: configure_esde,     tags: [configure, esde] }
+    - { role: desktop_apps,       tags: [configure, desktop] }

@@ -13,23 +13,25 @@
     src: extract_ps3_dlc.py
     dest: "{{ dg_box_home }}/scripts/extract_ps3_dlc.py"
     mode: "0755"
-  when: dg_advanced_emulators_enabled | bool
+  when: dg_rpcs3_enabled | bool
 
 - name: Deploy Switch NSP installer for Eden
   ansible.builtin.copy:
     src: install_switch_updates.py
     dest: "{{ dg_box_home }}/scripts/install_switch_updates.py"
     mode: "0755"
-  when: dg_advanced_emulators_enabled | bool
+  when: dg_eden_enabled | bool
 
-- name: Remove disabled advanced-emulator maintenance scripts
+- name: Remove disabled selected-console maintenance scripts
   ansible.builtin.file:
-    path: "{{ dg_box_home }}/scripts/{{ item }}"
+    path: "{{ dg_box_home }}/scripts/{{ item.name }}"
     state: absent
   loop:
-    - extract_ps3_dlc.py
-    - install_switch_updates.py
-  when: not (dg_advanced_emulators_enabled | bool)
+    - { name: extract_ps3_dlc.py, enabled: "{{ dg_rpcs3_enabled }}" }
+    - { name: install_switch_updates.py, enabled: "{{ dg_eden_enabled }}" }
+  loop_control:
+    label: "{{ item.name }}"
+  when: not (item.enabled | bool)
 
 - name: Deploy update-gaming one-shot updater
   ansible.builtin.copy:

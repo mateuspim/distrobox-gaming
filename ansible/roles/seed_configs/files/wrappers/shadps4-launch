@@ -4,7 +4,7 @@
 # Takes a PS4 ROM path (eboot.bin or a CUSA dir's interior file),
 # derives the title ID from the parent directory name (PS4 ROMs
 # convention: <ps4_root>/<CUSA_xxxxx>/eboot.bin), and launches the
-# QtLauncher-managed Pre-release shadPS4 build with that title ID.
+# packaged shadPS4 build with that title ID.
 #
 # Auto-applies a patch XML if <CUSA>.xml exists in shadPS4's patches
 # dir — convention is one patch file per title, named after the CUSA.
@@ -42,8 +42,6 @@ if [ -f "$PATCH_XML" ]; then
   echo "[shadps4-launch] using patch: $PATCH_XML" >&2
 fi
 
-# Delegate to the existing shadps4 wrapper, which locates the
-# QtLauncher-managed AppImage and handles AppRun env. The -g flag tells
-# shadPS4 to use its game-library entry for this title ID (matches the
-# eboot at sce_sys/, no need to pass --path).
-exec "$HOME/bin/shadps4" -g "$CUSA" $patch_args -f true
+# The -g flag tells shadPS4 to use its game-library entry for this title ID
+# (matches the eboot at sce_sys/, no need to pass --path).
+exec shadps4 -g "$CUSA" $patch_args -f true

@@ -70,13 +70,16 @@ the container passes these checks:
 
 ## Advanced tier
 
-After the core milestone, set this in a private/local override or update the
-committed profile deliberately:
+The historical broad tier remains available for the full personalized setup:
 
 ```yaml
 dg_advanced_emulators_enabled: true
 ```
 
-Advanced emulators still require their own firmware, keys, BIOS, or system
-files. Do not run upstream's full `site.yml` until those paths and desired
-systems have been reviewed; it includes Akita's game- and mod-specific roles.
+For Odin's four selected console emulators, keep that broad tier disabled and
+use [the focused console-emulator playbook](odin-console-emulators.md). It
+selects Eden, shadPS4, RPCS3, and Cemu without selecting xemu, Supermodel, or
+the other advanced packages and roles. Advanced emulators still require their
+own firmware, keys, BIOS, or system files. Do not run upstream's full
+`site.yml` until those paths and desired systems have been reviewed; it
+includes Akita's game- and mod-specific roles.

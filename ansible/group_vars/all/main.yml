@@ -11,6 +11,16 @@ dg_install_steam: true
 dg_advanced_emulators_enabled: true
 dg_optional_apps_enabled: true
 
+# Select individual advanced emulator families without enabling the complete
+# historical advanced tier. Defaults retain the all-in-one behavior for
+# existing profiles that set dg_advanced_emulators_enabled.
+dg_eden_enabled: "{{ dg_advanced_emulators_enabled | bool }}"
+dg_shadps4_enabled: "{{ dg_advanced_emulators_enabled | bool }}"
+dg_rpcs3_enabled: "{{ dg_advanced_emulators_enabled | bool }}"
+dg_cemu_enabled: "{{ dg_advanced_emulators_enabled | bool }}"
+# The Eden cheat manager is an independently installed optional app.
+dg_eden_cheats_manager_enabled: false
+
 # NAS requires UID/GID 1026 for file access.
 dg_host_uid: 1026
 dg_host_gid: 1026

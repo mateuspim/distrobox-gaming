@@ -1,5 +1,10 @@
 # shadPS4 and QtLauncher release configuration.
 
+# Leave game-specific profiles, Driveclub patches, and addon-path changes out
+# of a normal shadPS4 install. Enable only on a machine that deliberately uses
+# this repository's tested Driveclub-era configuration.
+dg_shadps4_seed_game_profiles_enabled: false
+
 dg_shadps4_qtlauncher_root: "{{ dg_box_home }}/tools/shadps4-qtlauncher"
 dg_shadps4_qtlauncher_release: ""
 dg_shadps4_qtlauncher_releases_api: https://api.github.com/repos/shadps4-emu/shadps4-qtlauncher/releases

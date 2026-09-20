@@ -19,13 +19,12 @@ dg_esde_arcade_clone_systems:
 
 dg_esde_systems:
   - name: switch
-    enabled: "{{ dg_advanced_emulators_enabled }}"
+    enabled: "{{ dg_eden_enabled }}"
     fullname: Nintendo Switch
     path: "{{ dg_emudeck_root }}/roms_heavy/switch"
     extension: ".nca .NCA .nro .NRO .nso .NSO .nsp .NSP .xci .XCI"
     commands:
       - { label: "Eden (Standalone)", cmd: "env -u QT_STYLE_OVERRIDE eden %ROM%" }
-      - { label: "Ryujinx (Standalone)", cmd: "%EMULATOR_RYUJINX% %ROM%" }
     platform: switch
     theme: switch
 
@@ -91,7 +90,7 @@ dg_esde_systems:
     theme: psp
 
   - name: ps3
-    enabled: "{{ dg_advanced_emulators_enabled }}"
+    enabled: "{{ dg_rpcs3_enabled }}"
     fullname: Sony PlayStation 3
     # Extracted-folder dumps: each game is a directory named
     # "<Title>.ps3" containing PS3_GAME/USRDIR/EBOOT.BIN. ES-DE treats
@@ -108,7 +107,7 @@ dg_esde_systems:
     theme: ps3
 
   - name: ps4
-    enabled: "{{ dg_advanced_emulators_enabled }}"
+    enabled: "{{ dg_shadps4_enabled }}"
     fullname: Sony PlayStation 4
     # Multi-game path: every <ps4_root>/CUSA_xxxxx/eboot.bin is a game.
     # Display names come from a generated gamelist.xml that reads each
@@ -122,6 +121,18 @@ dg_esde_systems:
         cmd: "{{ dg_box_home }}/bin/shadps4-launch %ROM%"
     platform: ps4
     theme: ps4
+
+  - name: wiiu
+    enabled: "{{ dg_cemu_enabled }}"
+    fullname: Nintendo Wii U
+    # Cemu opens extracted game executables (.rpx) and supported container
+    # formats directly. Keep folder-style dumps pointed at their title RPX.
+    path: "{{ dg_emudeck_root }}/roms_heavy/wiiu"
+    extension: ".rpx .RPX .wua .WUA .wud .WUD .wux .WUX"
+    commands:
+      - { label: "Cemu (Standalone)", cmd: "cemu -g %ROM%" }
+    platform: wiiu
+    theme: wiiu
 
   - name: xbox
     enabled: "{{ dg_advanced_emulators_enabled }}"

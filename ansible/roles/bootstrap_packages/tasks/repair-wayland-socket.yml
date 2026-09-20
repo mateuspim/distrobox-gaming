@@ -26,10 +26,15 @@
       for s in "$host_dir"/wayland-[0-9]*; do
         [ -S "$s" ] || continue
         name=$(basename "$s")
+        # A current Distrobox socket is already usable and cannot safely be
+        # replaced with a symlink. In particular, do not unlink it: it may be
+        # the active host socket exposed through the container integration.
+        [ -S "$box_dir/$name" ] && continue
         target=$(readlink "$box_dir/$name" 2>/dev/null || true)
         if [ "$target" != "$s" ]; then
-          ln -sfn "$s" "$box_dir/$name"
-          linked=$((linked+1))
+          if ln -sfn "$s" "$box_dir/$name"; then
+            linked=$((linked+1))
+          fi
         fi
       done
       echo "wayland-sockets-linked: $linked"
