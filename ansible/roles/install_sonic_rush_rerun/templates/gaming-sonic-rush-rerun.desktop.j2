@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic Rush Rerun (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_sonicrush_bin }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic Rush Rerun Anniversary Demo — Unity reimagining of Sonic Rush (DS), under Wine.
+Categories=Game;
+Keywords=sonic;rush;rerun;fangame;unity;
+StartupWMClass=Sonic Rush Rerun.exe;
+{{ ogm_metadata('gaming-sonic-rush-rerun') }}

@@ -1,0 +1,35 @@
+---
+# DKR-R — Diddy Kong Racing Recompiled (ThatGuyMcd/DKR-R) — an N64Recomp +
+# N64ModernRuntime + RT64 static recomp PC port of Diddy Kong Racing (US v1.0
+# or US Rev A/v1.1). Opt-in role install_dkr_recomp. See docs/dkr-r.md.
+#
+# Upstream ships a native Linux x86-64 AppImage (RT64 renders through Vulkan
+# directly), so no Wine — we hash-pin the release AppImage on the NAS and copy
+# it into the box.
+
+dg_dkr_version: "1.0.5-beta.10"
+dg_dkr_release_tag: "Version1.0.5beta10"
+dg_dkr_asset_name: "DKR-R-{{ dg_dkr_version }}-Linux-x86_64.AppImage"
+dg_dkr_asset_url: "https://github.com/ThatGuyMcd/DKR-R/releases/download/{{ dg_dkr_release_tag }}/{{ dg_dkr_asset_name }}"
+dg_dkr_asset_sha256: "ee5cb73aabe751fea9c02e582e2c664fe3fa9a1bb9f2c25ef3c60f6a1fb637a3"
+
+dg_dkr_nas_root: "{{ dg_roms_final_root }}/PC/dkr-r"
+dg_dkr_nas_appimage: "{{ dg_dkr_nas_root }}/{{ dg_dkr_asset_name }}"
+dg_dkr_install_dir: "{{ dg_box_home }}/tools/dkr-r"
+dg_dkr_appimage: "{{ dg_dkr_install_dir }}/{{ dg_dkr_asset_name }}"
+
+# ROM: Diddy Kong Racing US v1.0 OR US Rev A/v1.1 only (normalized big-endian
+# z64 sha1 must be one of dg_dkr_rom_sha1_z64). The active roms_mid dump is a
+# modified image DKR-R refuses (sha1 a534d2f2..., CRC 4B6724F7); the pristine
+# Rev A backup in roms_mid/n64/originals/ verifies clean. DKR-R detects byte
+# order itself, so the byte-swapped .n64 is passed as-is.
+dg_dkr_rom: "{{ dg_rom_mid_root }}/n64/originals/Diddy Kong Racing (USA) (En,Fr) (Rev A).n64"
+dg_dkr_rom_sha1_z64:
+  - "0cb115d8716dbbc2922fda38e533b9fe63bb9670"  # US v1.0
+  - "6d96743d46f8c0cd0edb0ec5600b003c89b93755"  # US Rev A / v1.1
+
+dg_dkr_launcher: "{{ dg_box_home }}/bin/dkr-r"
+dg_dkr_config_dir: "{{ dg_box_home }}/.config/dkr-port"
+dg_dkr_main_output: "DP-1"
+dg_dkr_pacman_packages: [fuse2]
+dg_dkr_revert: false

@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic Legends (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_soniclegends_bin }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic Legends Trial — GameMaker classic-Sonic fangame by ULTRA RING, under Wine.
+Categories=Game;
+Keywords=sonic;legends;fangame;
+StartupWMClass=Sonic Legends.exe;
+{{ ogm_metadata('gaming-sonic-legends') }}

@@ -1,0 +1,31 @@
+---
+# Sonic Overture (2023 demo) — Sonic Overture Team's fan-made classic-Sonic
+# game on Clickteam Fusion 2.5 (mmf2d3d9.dll, .mfx modules). WINDOWS-only →
+# wine-11.8 with the established recipe (UseEGL=N GLX pin + WineBus SDL for
+# the 8BitDo), fullscreen via gamescope integer scaling (gamescope subsumes
+# the Wine-virtual-desktop corner-render fix). Opt-in role install_sonic_overture. See docs/sonic-fan-pack.md.
+#
+# Source: the user's downloaded rar on the NAS (itch.io page
+# sonic-overture-team.itch.io/sonic-overture-2023-demo — itch has no releases
+# API; ogm.yml fingerprints the page to badge new uploads). The rar holds a
+# top-level Overture95_Demo_v1/ folder with SonicOverture95.exe inside.
+
+dg_sonicoverture_version: "2023-demo-v1"
+dg_sonicoverture_rar: "{{ dg_roms_final_root }}/PC/Overture95_Demo_v1.rar"
+
+dg_sonicoverture_install_dir: "{{ dg_box_home }}/Games/sonic-overture"
+dg_sonicoverture_game_dir: "{{ dg_sonicoverture_install_dir }}/Overture95_Demo_v1"
+dg_sonicoverture_exe: "SonicOverture95.exe"
+dg_sonicoverture_bin: "{{ dg_box_home }}/bin/sonic-overture"
+dg_sonicoverture_prefix: "{{ dg_box_home }}/wineprefixes/sonic-overture"
+dg_sonicoverture_wine_bin_dir: "{{ dg_pc_racing_wine_runner_root }}/wine-11.8/usr/bin"
+dg_sonicoverture_gamescope_args: "-W 3840 -H 2160 -S integer -f --framerate-limit 60"
+
+dg_sonicoverture_winebus_registry:
+  - { name: DisableHidraw, value: 1 }
+  - { name: DisableInput, value: 1 }
+  - { name: "Enable SDL", value: 1 }
+  - { name: "Map Controllers", value: 1 }
+
+dg_sonicoverture_main_output: "DP-1"
+dg_sonicoverture_revert: false

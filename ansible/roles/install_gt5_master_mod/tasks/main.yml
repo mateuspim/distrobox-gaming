@@ -98,3 +98,26 @@
 - name: Apply mod files onto the v2.11 install
   ansible.builtin.include_tasks: apply_mod.yml
   tags: [apply]
+
+# GT5 save editor (zyzalfors/GT5SaveEditor, rebuilt for RPCS3 plaintext
+# saves — upstream insists on PARAM.PFD which RPCS3 never writes). The
+# prebuilt tree is archived on the NAS so box rebuilds don't need dotnet.
+- name: Stat NAS GT5 save editor build
+  ansible.builtin.stat:
+    path: "{{ dg_gt5_save_editor_src }}/bin/gt5tool"
+  register: _gt5_save_editor
+  tags: [always]
+
+- name: Warn when GT5 save editor archive is missing
+  ansible.builtin.debug:
+    msg: "WARNING: {{ dg_gt5_save_editor_src }} missing on NAS — skipping GT5 save editor install (see docs/gt5-master-mod.md)"
+  when: not (_gt5_save_editor.stat.exists | default(false))
+  tags: [always]
+
+- name: Install GT5 save editor into the box
+  ansible.builtin.copy:
+    src: "{{ dg_gt5_save_editor_src }}/bin/"
+    dest: "{{ dg_gt5_save_editor_dest }}"
+    mode: "0755"
+  when: _gt5_save_editor.stat.exists | default(false)
+  tags: [tools]

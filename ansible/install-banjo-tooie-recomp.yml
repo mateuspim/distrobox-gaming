@@ -1,0 +1,7 @@
+---
+- name: Install Banjo-Tooie Recompiled (Windows alpha under Wine)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_banjotooie_recomp

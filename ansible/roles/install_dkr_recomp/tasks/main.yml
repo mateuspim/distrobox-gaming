@@ -1,0 +1,119 @@
+---
+# DKR-R — Diddy Kong Racing Recompiled: native Linux AppImage on the RTX.
+# See group_vars/all/dkr_recomp.yml and docs/dkr-r.md.
+
+- name: Revert DKR-R when requested
+  when: dg_dkr_revert | bool
+  block:
+    - name: Remove the DKR-R launcher, desktop entry + install dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_dkr_launcher }}"
+        - "{{ dg_dkr_install_dir }}"
+        - "{{ dg_desktop_render_dir }}/gaming-dkr-r.desktop"
+    - name: Refresh host launchers after removing DKR-R
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      changed_when: true
+    - name: Report DKR-R reverted
+      ansible.builtin.debug:
+        msg: "DKR-R removed. The NAS AppImage, your ROM + {{ dg_dkr_config_dir }} are untouched."
+
+- name: Install DKR-R
+  when: not (dg_dkr_revert | bool)
+  block:
+    - name: Verify the Diddy Kong Racing ROM exists and is a supported US revision
+      ansible.builtin.shell: |
+        python3 - <<'PY'
+        import hashlib
+        d = bytearray(open(r'''{{ dg_dkr_rom }}''', 'rb').read())
+        m = bytes(d[:4])
+        if m == b'\x40\x12\x37\x80':      # .n64 little-endian -> z64
+            z = b''.join(bytes(d[i:i+4][::-1]) for i in range(0, len(d), 4))
+        elif m == b'\x37\x80\x40\x12':    # .v64 byte-swapped -> z64
+            for i in range(0, len(d) - 1, 2): d[i], d[i+1] = d[i+1], d[i]
+            z = bytes(d)
+        else:
+            z = bytes(d)
+        h = hashlib.sha1(z).hexdigest()
+        if h not in {{ dg_dkr_rom_sha1_z64 | to_json }}:
+            raise SystemExit("DKR ROM is not a supported US revision (normalized sha1 " + h + ")")
+        print("rom-ok " + h)
+        PY
+      register: _dkr_rom
+      changed_when: false
+      failed_when: "'rom-ok' not in _dkr_rom.stdout"
+
+    - name: Create DKR-R directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_dkr_nas_root }}"
+        - "{{ dg_dkr_install_dir }}"
+        - "{{ dg_box_home }}/bin"
+
+    - name: Install DKR-R runtime dependencies inside box
+      ansible.builtin.shell: >-
+        {{ dg_in_box }} sudo pacman -S --needed --noconfirm
+        {{ dg_dkr_pacman_packages | join(' ') }}
+      register: _dkr_pacman
+      changed_when: "'installing' in _dkr_pacman.stdout or 'upgrading' in _dkr_pacman.stdout"
+
+    - name: Download the pinned DKR-R Linux AppImage to the NAS
+      ansible.builtin.get_url:
+        url: "{{ dg_dkr_asset_url }}"
+        dest: "{{ dg_dkr_nas_appimage }}"
+        checksum: "sha256:{{ dg_dkr_asset_sha256 }}"
+        mode: "0644"
+
+    - name: Install the AppImage into the box (version-gated)
+      ansible.builtin.shell: |
+        set -eu
+        if [ -x "{{ dg_dkr_appimage }}" ] &&
+           grep -qx "{{ dg_dkr_release_tag }}" "{{ dg_dkr_install_dir }}/.dg-installed-ref" 2>/dev/null; then
+          exit 0
+        fi
+        cp "{{ dg_dkr_nas_appimage }}" "{{ dg_dkr_appimage }}"
+        chmod 0755 "{{ dg_dkr_appimage }}"
+        printf "%s\n" "{{ dg_dkr_release_tag }}" > "{{ dg_dkr_install_dir }}/.dg-installed-ref"
+        echo dkr-installed
+      register: _dkr_install
+      changed_when: "'dkr-installed' in _dkr_install.stdout"
+
+    - name: Deploy the DKR-R launcher
+      ansible.builtin.template:
+        src: dkr-r.sh.j2
+        dest: "{{ dg_dkr_launcher }}"
+        mode: "0755"
+
+    - name: Render the DKR-R desktop entry
+      ansible.builtin.template:
+        src: dkr-r.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-dkr-r.desktop"
+        mode: "0644"
+
+    - name: Install the desktop file into the host applications dir
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _dkr_host_launchers
+      changed_when: >-
+        'installed ' in _dkr_host_launchers.stdout or
+        'removed stale ' in _dkr_host_launchers.stdout
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          DKR-R {{ dg_dkr_version }} at {{ dg_dkr_install_dir }};
+          launcher {{ dg_dkr_launcher }}. ROM (US Rev A, sha1-verified) passed via
+          --rom so the picker is skipped; saves/config in {{ dg_dkr_config_dir }}.
+          Revert: -e dg_dkr_revert=true.

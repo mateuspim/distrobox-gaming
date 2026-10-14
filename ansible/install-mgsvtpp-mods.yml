@@ -1,0 +1,7 @@
+---
+- name: "Install MGSV: The Phantom Pain Nexus mods (mgsv-mod-installer)"
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_mgsvtpp_mods

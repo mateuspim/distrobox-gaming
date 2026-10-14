@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic and the Moon Facility (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_moonfacility_bin }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic and the Moon Facility (final build) — Clickteam Fusion 2.5 Sonic fangame, under Wine.
+Categories=Game;
+Keywords=sonic;moon;facility;fangame;clickteam;
+StartupWMClass=Sonic and The Moon Facility.exe;
+{{ ogm_metadata('gaming-moon-facility') }}

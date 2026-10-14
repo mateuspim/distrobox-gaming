@@ -1,0 +1,33 @@
+---
+# Sonic Dimensions (5.1.0 demo) — Phantom-Radea's fan-made 2D Sonic game on
+# Clickteam Fusion (supersound.dll). WINDOWS-only → wine-11.8 with the
+# established recipe (UseEGL=N GLX pin + WineBus SDL for the 8BitDo),
+# fullscreen via gamescope integer scaling. Opt-in role
+# install_sonic_dimensions. See docs/sonic-fan-pack.md.
+#
+# Source: the user's downloaded rar on the NAS. Canonical page is the
+# author's DeviantArt post "Sonic Dimensions 5.1.1 In Development + 5.1.0
+# DEMO" (deviantart.com/phantom-radea/art/...963814256) — 5.1.0 is the newest
+# public demo (5.1.1 still in development); ogm.yml fingerprints the page.
+# The rar holds a top-level "Sonic Dimensions/" folder with
+# "Sonic Dimensions 5.1.0.exe" inside.
+
+dg_sonicdimensions_version: "5.1.0-demo"
+dg_sonicdimensions_rar: "{{ dg_roms_final_root }}/PC/Sonic Dimensions 5.1.0.rar"
+
+dg_sonicdimensions_install_dir: "{{ dg_box_home }}/Games/sonic-dimensions"
+dg_sonicdimensions_game_dir: "{{ dg_sonicdimensions_install_dir }}/Sonic Dimensions"
+dg_sonicdimensions_exe: "Sonic Dimensions 5.1.0.exe"
+dg_sonicdimensions_bin: "{{ dg_box_home }}/bin/sonic-dimensions"
+dg_sonicdimensions_prefix: "{{ dg_box_home }}/wineprefixes/sonic-dimensions"
+dg_sonicdimensions_wine_bin_dir: "{{ dg_pc_racing_wine_runner_root }}/wine-11.8/usr/bin"
+dg_sonicdimensions_gamescope_args: "-W 3840 -H 2160 -S integer -f --framerate-limit 60"
+
+dg_sonicdimensions_winebus_registry:
+  - { name: DisableHidraw, value: 1 }
+  - { name: DisableInput, value: 1 }
+  - { name: "Enable SDL", value: 1 }
+  - { name: "Map Controllers", value: 1 }
+
+dg_sonicdimensions_main_output: "DP-1"
+dg_sonicdimensions_revert: false

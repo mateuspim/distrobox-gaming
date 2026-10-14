@@ -1,0 +1,96 @@
+---
+# Spider-Man Remastered + Miles Morales Nexus mods via Overstrike CLI.
+# Opt-in role install_spiderman_mods. See docs/nexusmods.md.
+#
+# History: parked in issue #11 ("Overstrike is GUI-only, no headless path") —
+# WRONG: Overstrike has a headless CLI since v1.7.2 (2025-04). Unblocked
+# 2026-10-03, both games modded manually, then codified here.
+#
+# Mechanism: Overstrike bakes mods into the game's asset_archive/toc (creates
+# asset_archive/mods/mod* + toc.BAK backup). No runtime loader — the game
+# just runs through Steam afterwards. Run this role with Steam STOPPED.
+#
+# Headless recipe (hard-won, do not re-derive):
+# - Run the pinned Overstrike via Proton 11 `runinprefix` in each game's own
+#   compatdata prefix (.NET 7 Desktop Runtime already installed in both).
+# - `env -u DOTNET_ROOT -u DOTNET_ROOT_X86 -u DOTNET_CLI_HOME` is REQUIRED —
+#   the host's mise dotnet-root leaks into Wine and breaks hostfxr.
+# - The CLI's add-mod/enable-mod Assert on library-absolute paths and are
+#   useless for automation; instead write the profile JSON `mods` array
+#   directly ([[library-relative-name, true], ...]) and run `install-mods`.
+#   Exit code 0 = success.
+
+dg_smmods_overstrike_version: "1.8.1"
+dg_smmods_overstrike_url: "https://github.com/Tkachov/Overstrike/releases/download/OS/v{{ dg_smmods_overstrike_version }}/Overstrike_v{{ dg_smmods_overstrike_version }}.zip"
+dg_smmods_overstrike_sha256: "db63705e85c60777ea13d4d4107d3977e55f550c946e5adc6ef0ff3959981ce6"
+
+dg_smmods_nexus_root: "{{ dg_roms_final_root }}/PC/NexusMods"
+dg_smmods_overstrike_zip: "{{ dg_smmods_nexus_root }}/_loaders/overstrike/Overstrike_v{{ dg_smmods_overstrike_version }}.zip"
+dg_smmods_work_root: "{{ dg_box_home }}/tools/overstrike"
+
+# The shared library on the external STEAM drive (both host + box Steam use
+# it). Personal-path default is intentional (central var).
+dg_smmods_steamapps: "/run/media/akitaonrails/STEAM/steamapps"
+dg_smmods_proton: "{{ dg_smmods_steamapps }}/common/Proton 11.0/proton"
+dg_smmods_compat_client_install: "/home/akitaonrails/.local/share/Steam"
+
+# Per-game data. mods entries: archive = NAS archive under the game's mods
+# dir, member = path inside the extracted archive, lib = flat name staged in
+# Overstrike's "Mods Library" (and referenced by the profile JSON).
+dg_smmods_games:
+  - id: msmr
+    appid: "1817070"
+    profile: MSM
+    game_dir: "Marvel's Spider-Man Remastered"
+    mods_src: spiderman-r
+    mods:
+      - { archive: "634/NYC Natural Lighting Overhaul-634-1-0-1661026334.rar",
+          member: "NYC Natural Lighting Overhaul - Day.smpcmod" }
+      - { archive: "1291/Real Brands and Ads Revamp-1291-1-3-5-1672306624.zip",
+          member: "Real Brands and Ads Revamp.smpcmod" }
+      - { archive: "2520/Infinite Web Gadget Ammo (V.1)-2520-V-1-1664634365.rar",
+          member: "Infinite Web Gadget Ammo (V.1).smpcmod" }
+      - { archive: "2868/Traversal And Momentum Tweaks-2868-Ultimate-1670949433.zip",
+          member: "TaMT - Ultimate Edition Release/1. PICK ONE Swinging Module/TaMT - Swinging Module (Standard).smpcmod" }
+      - { archive: "2868/Traversal And Momentum Tweaks-2868-Ultimate-1670949433.zip",
+          member: "TaMT - Ultimate Edition Release/2. PICK ONE Traversal Module/TaMT - Traversal Module.smpcmod" }
+      - { archive: "2868/Traversal And Momentum Tweaks-2868-Ultimate-1670949433.zip",
+          member: "TaMT - Ultimate Edition Release/TaMT - Sprinting Module.smpcmod" }
+      - { archive: "2868/Traversal And Momentum Tweaks-2868-Ultimate-1670949433.zip",
+          member: "TaMT - Ultimate Edition Release/TaMT - Animations Module.smpcmod" }
+      - { archive: "3179/Expressive Combat - Full-3179-1-0-1668266061.rar",
+          member: "Expressive Combat - Full Replacer.smpcmod" }
+      - { archive: "3200/Expressive Web Climbing - Higher Frequency Version-3200-1-0-1668356317.rar",
+          member: "Expressive Web Climbing - Higher Frequency Version.smpcmod" }
+      - { archive: "3550/TENACIOUS COMBAT ALL-in_ONE (Modular) Part1-3550-Definitive-v1-1737668934.rar",
+          member: "TENACIOUS COMBAT MODULAR AiO Part1.modular" }
+      - { archive: "2524/Friendly Neighborhood Ultimate Spidaman-2524-1-1-1-1686328580.zip",
+          member: "Friendly Neighborhood Ultimate Spiderman.smpcmod" }
+  - id: msmm
+    appid: "1817190"
+    profile: MM
+    game_dir: "Marvel's Spider-Man Miles Morales"
+    mods_src: spiderman-mm
+    mods:
+      - { archive: "216/Realistic NYC 1.1-216-1-1-1694020331.zip",
+          member: "Realistic NYC v1.1.mmpcmod" }
+      - { archive: "26/Infinite web zip-26-1-01-1668809412.rar",
+          member: "Infinite Web Zip v1.01.mmpcmod" }
+      - { archive: "155/Infinite camo-155-1-1669069783.rar",
+          member: "Infinite Camo.mmpcmod" }
+      - { archive: "317/Infinite Gadget Ammo-317-1-1669811702.rar",
+          member: "Infinite Gadget Ammo.mmpcmod" }
+      - { archive: "81/Traversal And Momentum Tweaks - Miles Morales Edition-81-ALPHA-4-1669457424.zip",
+          member: "TaMT Miles Edition - Swinging Module(Standard).mmpcmod" }
+      - { archive: "81/Traversal And Momentum Tweaks - Miles Morales Edition-81-ALPHA-4-1669457424.zip",
+          member: "TaMT Miles Edition - Traversal Module.mmpcmod" }
+      - { archive: "81/Traversal And Momentum Tweaks - Miles Morales Edition-81-ALPHA-4-1669457424.zip",
+          member: "TaMT Miles Edition - Sprinting Module.mmpcmod" }
+      - { archive: "29/Spider-Man -  Unnerfed 1.1-29-1-1-1669063121.rar",
+          member: "1.1 Unnerfed Spider-Man (Movement Tweaks and better Swinging) MILES MORALES/Swinging Mode/1.1 Alternate Swinging Module.mmpcmod" }
+      - { archive: "29/Spider-Man -  Unnerfed 1.1-29-1-1-1669063121.rar",
+          member: "1.1 Unnerfed Spider-Man (Movement Tweaks and better Swinging) MILES MORALES/Swinging Mode/1.1 Alternate Traversal Module - VANILLA PHYSICS.mmpcmod" }
+      - { archive: "29/Spider-Man -  Unnerfed 1.1-29-1-1-1669063121.rar",
+          member: "1.1 Unnerfed Spider-Man (Movement Tweaks and better Swinging) MILES MORALES/Swinging Mode/1.1 Faster Sprinting Module.mmpcmod" }
+
+dg_smmods_revert: false

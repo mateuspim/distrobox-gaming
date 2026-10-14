@@ -102,7 +102,7 @@ dg_esde_systems:
     path: "{{ dg_emudeck_root }}/roms_heavy/ps3"
     extension: ".ps3 .PS3"
     commands:
-      - { label: "RPCS3 (Standalone)", cmd: "rpcs3 --no-gui %ROM%" }
+      - { label: "RPCS3 (Standalone)", cmd: "{{ dg_rpcs3_launch }} --no-gui %ROM%" }
     platform: ps3
     theme: ps3
 
@@ -168,15 +168,21 @@ dg_esde_systems:
     # Plus, RidgeRacerCollection, etc.) have default.xex inside; ES-DE
     # recurses subdirs by default and picks them up. The wrapper resolves
     # each ROM to its Xenia Manager per-game config via games.json.
+    #
+    # XBLA (Arcade) titles under xbla/ are extension-less content packages
+    # (<title>/<mediaid>/000D0000/<hash>) that ES-DE's file scan can't see.
+    # The `esde-xenia-xbla-stubs` helper (scripts_in_box) writes one small
+    # `<title>.xbla` stub per XBLA game, pointing at its content package;
+    # `.xbla` is in the extension list below so ES-DE lists them, and the
+    # wrapper resolves a stub back to the content file + its per-game config.
     path: "{{ dg_emudeck_root }}/roms_heavy/xbox360"
-    extension: ".iso .ISO .xex .XEX"
+    extension: ".iso .ISO .xex .XEX .xbla .XBLA"
     commands:
       # Wrapper resolves %ROM% to its per-game .config.toml via Xenia
       # Manager's games.json, then runs xenia_canary.exe in the
       # dg_xenia_prefix wineprefix. Falls back to default config with a
-      # stderr warning if the ROM is unmapped (e.g. XBLA folder hashes
-      # whose tracked path in games.json doesn't match an .iso/.xex
-      # filename ES-DE scanned).
+      # stderr warning if the ROM is unmapped. A `.xbla` stub is first
+      # resolved to the real XBLA content package it names.
       - label: "Xenia Canary (per-game config)"
         cmd: "{{ dg_box_home }}/bin/xenia-canary-launch %ROM%"
     platform: xbox360
@@ -321,6 +327,11 @@ dg_esde_systems:
       # ParaLLEl-N64 runs heavy Kaze romhacks that crash Mupen64Plus-Next
       # (SM64: Last Impact). Pick it per-game in ES-DE for those hacks.
       - { label: "ParaLLEl N64 (RetroArch)", cmd: "%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/parallel_n64_libretro.so %ROM%" }
+      # Standalone Parallel Launcher (install_parallel_launcher): its own newer
+      # RetroArch AppImage + newest ParaLLEl core. The ONLY thing that renders
+      # the newest heavy Kaze hacks whose custom rendering the RetroArch core's
+      # older parallel-rdp draws black (Return to Yoshi's Island Demo 2).
+      - { label: "Parallel Launcher (standalone)", cmd: "parallel-launcher %ROM%" }
     platform: n64
     theme: n64
 
@@ -413,6 +424,95 @@ dg_esde_systems:
       - { label: "MAME (RetroArch)", cmd: "%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%" }
     platform: arcade
     theme: mame
+
+  # ---------------------------------------------------------------------
+  # Atari. Three cores already in dg_retroarch_cores cover four ES-DE
+  # systems: stella (2600), prosystem (7800), handy (Lynx) and atari800
+  # (BOTH the 8-bit computer line and the 5200 console). retroarch_extras
+  # had been downloading all of them since the core list was written, but
+  # without these entries ES-DE never showed a system for them, so the
+  # cores sat orphaned — only reachable by loading a ROM by hand from
+  # RetroArch's own menu. See docs/atari.md.
+  #
+  # Atari ST is defined below with its own BIOS profile and mandatory
+  # focused installation checks; see docs/atari-st.md.
+  #
+  # BIOS: none of these four need one. stella needs nothing, prosystem's
+  # is optional, atari800 compiles in AltirraOS, and handy HLEs the Lynx
+  # boot ROM when the file is absent. link_storage still symlinks the real
+  # dumps out of dg_bios_root for whoever owns them
+  # (dg_retroarch_system_bios).
+  # ---------------------------------------------------------------------
+
+  - name: atari2600
+    enabled: "{{ dg_atari_enabled }}"
+    fullname: Atari 2600
+    path: "{{ dg_emudeck_root }}/roms/atari2600"
+    extension: ".a26 .A26 .bin .BIN .rom .ROM .zip .ZIP .7z .7Z"
+    commands:
+      - { label: "Stella (RetroArch)", cmd: "%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/stella_libretro.so %ROM%" }
+    platform: atari2600
+    theme: atari2600
+
+  # The 5200 runs on the same atari800 core as the 8-bit computers below,
+  # switched by the `atari800_system` core option — read at core init,
+  # with no CLI flag to set it. The core auto-forces 5200 mode for a cart
+  # it recognises (.a52, or .bin/.rom by CRC), but that force is one-way:
+  # it never turns 5200 mode back OFF, so an .atr launched after a 5200
+  # session boots as a 5200. bin/retroarch-atari800 rewrites the option
+  # from the ROM's system dir before every launch to close that, the same
+  # pre-launch enforcement the xemu wrapper uses for surface_scale.
+  - name: atari5200
+    enabled: "{{ dg_atari_enabled }}"
+    fullname: Atari 5200
+    path: "{{ dg_emudeck_root }}/roms/atari5200"
+    extension: ".a52 .A52 .bin .BIN .car .CAR .rom .ROM .zip .ZIP .7z .7Z"
+    commands:
+      - { label: "Atari800 (RetroArch)", cmd: "{{ dg_box_home }}/bin/retroarch-atari800 %ROM%" }
+    platform: atari5200
+    theme: atari5200
+
+  - name: atari7800
+    enabled: "{{ dg_atari_enabled }}"
+    fullname: Atari 7800 ProSystem
+    path: "{{ dg_emudeck_root }}/roms/atari7800"
+    extension: ".a78 .A78 .bin .BIN .zip .ZIP .7z .7Z"
+    commands:
+      - { label: "ProSystem (RetroArch)", cmd: "%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/prosystem_libretro.so %ROM%" }
+    platform: atari7800
+    theme: atari7800
+
+  - name: atarilynx
+    enabled: "{{ dg_atari_enabled }}"
+    fullname: Atari Lynx
+    path: "{{ dg_emudeck_root }}/roms/atarilynx"
+    extension: ".lnx .LNX .o .O .zip .ZIP .7z .7Z"
+    commands:
+      - { label: "Handy (RetroArch)", cmd: "%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/handy_libretro.so %ROM%" }
+    platform: atarilynx
+    theme: atarilynx
+
+  - name: atari800
+    enabled: "{{ dg_atari_enabled }}"
+    fullname: Atari 800
+    path: "{{ dg_emudeck_root }}/roms/atari800"
+    extension: ".atr .ATR .bas .BAS .bin .BIN .car .CAR .cas .CAS .dcm .DCM .xex .XEX .xfd .XFD .zip .ZIP .7z .7Z"
+    commands:
+      - { label: "Atari800 (RetroArch)", cmd: "{{ dg_box_home }}/bin/retroarch-atari800 %ROM%" }
+    platform: atari800
+    theme: atari800
+
+  # Atari ST uses an isolated BIOS profile; see docs/atari-st.md.
+  - name: atarist
+    enabled: "{{ dg_atari_st_enabled }}"
+    fullname: Atari ST
+    path: "{{ dg_atari_st_rom_dir }}"
+    extension: ".st .ST .stx .STX .msa .MSA .dim .DIM .ipf .IPF .zip .ZIP"
+    commands:
+      - label: "Hatari (RetroArch)"
+        cmd: '%EMULATOR_RETROARCH% --appendconfig "{{ dg_atari_st_retroarch_config }}" -L "{{ dg_retroarch_dir }}/cores/hatari_libretro.so" %ROM%'
+    platform: atarist
+    theme: atarist
 
   # OpenBOR fan games as .pak files, run by the native OpenBOR 4.0 engine
   # wrapper (install_openbor). ES-DE's stock 'openbor' system expects one

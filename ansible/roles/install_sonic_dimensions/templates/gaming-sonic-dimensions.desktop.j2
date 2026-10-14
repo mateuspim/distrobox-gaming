@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic Dimensions (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_sonicdimensions_bin }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic Dimensions 5.1.0 Demo — Phantom-Radea's Clickteam Fusion Sonic fangame, under Wine.
+Categories=Game;
+Keywords=sonic;dimensions;fangame;clickteam;
+StartupWMClass=Sonic Dimensions 5.1.0.exe;
+{{ ogm_metadata('gaming-sonic-dimensions') }}

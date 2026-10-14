@@ -8,11 +8,14 @@
     - { role: create_box,                tags: [create] }
     - { role: bootstrap_packages,        tags: [bootstrap] }
     - { role: refresh_shadps4,           tags: [shadps4] }
+    - { role: install_rpcs3,             tags: [rpcs3], when: dg_rpcs3_enabled | bool }
+    - { role: install_xemu,              tags: [xemu],  when: dg_advanced_emulators_enabled | bool }
     - { role: install_hedgemodmanager,   tags: [hedgemodmanager] }
     - { role: install_eden_cheats_manager, tags: [eden_cheats_manager] }
     - { role: link_storage,              tags: [configure, storage] }
     - { role: seed_configs,              tags: [configure, configs, reset_configs] }
     - { role: scripts_in_box,            tags: [configure, scripts] }
+    - { role: backup_saves,              tags: [configure, backup_saves] }
     # Opt-in roles: skipped by default, run only when the matching tag
     # is explicitly passed (e.g. --tags dlcs). These operate against
     # your specific NAS/ROM layout or make large downloads.
@@ -32,11 +35,16 @@
     - { role: install_smw_remastered,    tags: [smw_remastered, never] }
     - { role: install_dk64_recomp,       tags: [dk64_recomp, never] }
     - { role: install_dkc_recomp,        tags: [dkc_recomp, never] }
-    - { role: install_banjo_recomp,      tags: [banjo_recomp, never] }
+    - { role: install_lighthouse,        tags: [lighthouse, banjo, never] }
+    - { role: install_midnightclub_la,   tags: [midnightclub_la, never] }
+    - { role: install_roadrash64_recomp,  tags: [roadrash64, never] }
+    - { role: install_fzero_recomp,      tags: [fzero_recomp, never] }
+    - { role: install_driveclub_shader_patch, tags: [driveclub, never] }
     - { role: install_perfect_dark,      tags: [perfect_dark, never] }
     - { role: install_project_reignition, tags: [project_reignition, never] }
     - { role: install_sonic3air,         tags: [sonic3air, never] }
     - { role: install_sonic_sms_remake,  tags: [sonic_sms_remake, never] }
+    - { role: install_sonic2_2013,       tags: [sonic2_2013, never] }
     - { role: install_sorr,              tags: [sorr, never] }
     - { role: install_sor4_reignited,    tags: [sor4_reignited, never] }
     - { role: install_prboom_plus_rt,    tags: [prboom_rt, doom_rt, never] }
@@ -91,14 +99,25 @@
     - { role: install_sonic_p06,         tags: [sonic_p06, never] }
     - { role: install_wipeout_pe,        tags: [wipeout_pe, never] }
     - { role: install_cannonball,        tags: [cannonball, never] }
+    - { role: install_parallel_launcher, tags: [parallel_launcher, never] }
+    - { role: install_triaevum,          tags: [triaevum, never] }
+    - { role: install_waverace_recomp,   tags: [waverace_recomp, never] }
+    - { role: install_sm64ds_port,       tags: [sm64ds_port, never] }
+    - { role: install_project_r,         tags: [project_r, never] }
+    - { role: install_pilotwings_recomp, tags: [pilotwings_recomp, never] }
+    - { role: install_cbfd_recomp,       tags: [cbfd_recomp, never] }
+    - { role: install_dkr_recomp,        tags: [dkr_recomp, never] }
+    - { role: install_bar_recomp,        tags: [beetle_recomp, never] }
     - { role: install_smb_remastered,    tags: [smb_remastered, never] }
     - { role: install_gdiffuser,         tags: [gdiffuser, never] }
     - { role: install_mph_recomp,        tags: [mph_recomp, never] }
     - { role: install_dklr,              tags: [dklr, never] }
     - { role: install_unleashed_recomp,  tags: [unleashed_recomp, never] }
+    - { role: install_wwhd_recomp,       tags: [wwhd_recomp, never] }
     - { role: install_smm2_levels,   tags: [smm2_levels, never] }
     - { role: install_rom_patches,       tags: [rom_patches, dkc_gba_restoration, ffoae, never] }
     - { role: install_7th_heaven,        tags: [seven_heaven, "7th_heaven", materiaforge, ffvii_7th_heaven, never] }
+    - { role: ogm_catalog,               tags: [ogm, never] }
     - { role: desktop_apps,              tags: [configure, desktop, reset_configs] }
     - { role: configure_esde,            tags: [configure, esde, reset_configs] }
     - { role: shell_config,              tags: [configure, shell, reset_configs] }

@@ -144,6 +144,19 @@ bind mount are untouched.
   ```
 
   Only pass the tags for games/features you have assets staged for.
+- **Restore save data (only if the box `$HOME` was lost).** A container
+  prune leaves the bind-mounted home — and therefore all saves —
+  untouched. But if you re-provisioned onto a *fresh* box home, pull the
+  saves back from the NAS backup after `site.yml`:
+
+  ```sh
+  ansible-playbook restore-saves.yml
+  ```
+
+  It's safe (never overwrites a save already present). See
+  [docs/save-backups.md](save-backups.md). Get in the habit of running
+  `distrobox enter gaming -- bash -lc '$HOME/bin/backup-saves'` periodically
+  so this backup is current.
 - **Standalone installer playbooks.** 30 `ansible/install-*.yml`
   playbooks exist outside `site.yml`, one role each, for the
   Windows/Wine games and tools (Xenia Manager, Azahar, Cheat Engine,
@@ -158,8 +171,96 @@ bind mount are untouched.
   tolerates any single broken AUR package instead of aborting the
   whole run, so don't treat one AUR failure in the batch as a reason
   to stop and debug.
+- **AUR source packages break on soname bumps.** After a box
+  `pacman -Syu`, AUR packages built from source (`emulationstation-de`,
+  its dep `freeimage`, etc.) keep linking the OLD library soname and
+  fail with `error while loading shared libraries: lib<old>.so: cannot
+  open shared object file` (seen 2026-09-28: openexr 3.4 → 3.5 broke
+  ES-DE). Always run `scripts/check-box-sonames.sh` after a box update
+  and rebuild what it flags from source with makepkg — `yay -S` just
+  reinstalls the cached binary:
+  `cd /tmp && git clone https://aur.archlinux.org/<pkg>.git && cd <pkg> && makepkg -srci --noconfirm`
+  (rebuild `freeimage` first for ES-DE).
+- **`freeimage` and jxrlib 1.4.4 (2026-10-12).** The AUR `freeimage`
+  3.18.0-24 patch still adds `-I/usr/include/jxrlib`, but jxrlib moved its
+  headers under `/usr/include/libjxr/`. If its source build stops at
+  `JXRGlue.h: No such file or directory`, update the local PKGBUILD's
+  `prepare()` to replace that Makefile include flag with
+  `$(shell pkg-config --cflags libjxr)`, and change its `JXRVersion.h` guard
+  to `/usr/include/libjxr/glue/JXRVersion.h`. Then run
+  `makepkg -srci --noconfirm` in the `freeimage` AUR source directory, rebuild
+  `emulationstation-de` from source, and repeat the soname sweep. This is a
+  local AUR-cache workaround; a later `yay` refresh may overwrite it.
+- **Wine bumps can break behavior, not just linkage.** wine 11.18's "fix
+  monitor DPI awareness" made DPI-aware apps (Avalonia: Xenia Manager) honor
+  the prefix `LogPixels`, and the pinned 192 suddenly rendered the UI at 2x
+  with unreachable controls (2026-09-28). `install_xenia` now ENFORCES
+  `dg_xenia_wine_dpi: 96` on every run, and `scripts/check-box-sonames.sh`
+  audits the value after box updates — if it flags drift, re-run
+  `install-xenia.yml` with the manager closed. Details in
+  `docs/xenia-manager.md` ("UI sizing on the 4K panel").
+
+## Updating the box
+
+Routine maintenance. `update-gaming` covers pacman + AUR + RetroArch, but the
+emulators we moved off AUR onto upstream binaries are **not** in it — they are
+managed by their own roles, so update them explicitly:
+
+```sh
+# 1. System + AUR + RetroArch cores/assets (inside the box)
+distrobox enter gaming -- ~/bin/update-gaming          # add --skip-cores --skip-assets for a quick pkg-only pass
+
+# 2. Catch AUR soname breakage + Xenia Wine-DPI drift (host). Rebuild anything
+#    it flags from source with makepkg -srci (NOT yay -S).
+scripts/check-box-sonames.sh
+
+# 3. sha256-PINNED emulator AppImages — report-only; update-gaming never touches
+#    these. If OUTDATED, bump the pin (asset name + version + sha256 from the
+#    GitHub asset digest) in ansible/group_vars/all/<emu>.yml and re-run the role.
+scripts/check-emulator-updates.sh                      # rpcs3, xemu
+(cd ansible && ansible-playbook install-rpcs3.yml)     # when rpcs3 is outdated
+(cd ansible && ansible-playbook install-xemu.yml)      # when xemu is outdated
+
+# 4. SELF-UPDATING emulators — their roles always fetch the latest upstream
+#    release, so just re-run them (close the shadPS4 GUI / Xenia Manager first).
+(cd ansible && ansible-playbook refresh-shadps4.yml)   # latest shadPS4 Pre-release (+ QtLauncher)
+(cd ansible && ansible-playbook install-xenia.yml)      # latest Xenia Manager
+
+# 5. GitHub-backed PC games in the rendered OGM catalog — report-only.
+#    CANDIDATE means a release tag differs from the group_vars pin; inspect
+#    platform assets and game-specific notes before updating its vars and
+#    running the focused install playbook. REVIEW means a moving Git ref or
+#    latest-release installer has no comparable release pin; inspect it too.
+python3 scripts/check-github-game-updates.py             # run from repo root
+```
+
+Note: `refresh-shadps4.yml` bundles the shadPS4 config seed, whose "is shadPS4
+running" guard can false-trip on the refresh's own AppImage probe — the binary
+still updates; the guard refuses *before* editing `config.toml`, so nothing is
+left half-written. Re-run `reset-configs.yml --tags configs` while idle if you
+want the config re-seeded.
+
+The game sweep checks every rendered `port`, `decomp`, `recomp`, `fangame`,
+`wine`, and `arcade` entry with `X-OGM-GitHub`. It reads pinned versions from
+`group_vars` and queries GitHub releases, including prereleases in the pinned
+channel; rolling nightly/devel/test tags do not replace a stable pin. It reports
+possible updates without changing game files or saves; `NO_RELEASE` means the
+repository publishes no matching GitHub release, and `ERROR` needs a retry.
+For source checkouts and auto-updating installers, `REVIEW` is intentionally
+manual because a GitHub release tag alone cannot establish the installed
+revision. Update each candidate through its focused playbook after checking
+Linux/Windows assets, checksums, and the game's setup notes. GitHub Actions
+artifacts, non-GitHub downloads, and mods are outside this release check.
 
 ## Safety
 
 Do not run cleanup commands against ROM, BIOS, save, firmware, or game-data
 directories from these playbooks or scripts.
+
+## Atari ST
+
+For an existing gaming box, run `ansible-playbook install-atari-st.yml` from
+`ansible/`. This installs Hatari and requires BIOS/configuration validation.
+See [Atari ST](atari-st.md) for paths, repeat runs and the mandatory Linux
+game smoke test. `ansible-playbook verify-atari-st.yml` reruns prerequisite
+checks without installing games or changing configuration.

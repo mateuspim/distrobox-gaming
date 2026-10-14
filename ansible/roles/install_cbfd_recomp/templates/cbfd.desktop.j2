@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Conker's Bad Fur Day · Recompiled ({{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_cbfd_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Conker's Bad Fur Day: Recompiled — N64Recomp + RT64 native PC port (Vulkan) on the RTX
+Categories=Game;
+Keywords=conker;cbfd;n64;recomp;rt64;
+StartupWMClass=ConkerRecomp;
+{{ ogm_metadata('gaming-cbfd-recomp') }}

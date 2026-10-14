@@ -118,15 +118,18 @@ dg_duckstation_settings:
   - { section: BIOS, option: SearchDirectory,   value: "{{ dg_bios_root }}" }
   - { section: BIOS, option: PatchFastBoot,     value: "true" }
 
-  # GPU — 8x (4K+) Vulkan with sharp-but-smooth filtering. Bilinear
-  # (DuckStation default) washes out PS1 car/sprite detail; JINC2 is the
-  # consensus 2025-2026 replacement that keeps edges crisp without going
-  # full pixel-art. SpriteTextureFilter mirrors it for UI/HUD.
+  # GPU — 9x Vulkan (240p modes x9 = 2160, EXACTLY the 4K panel's height, so
+  # the final display scale is 1:1 vertically), with nearest-neighbor texture
+  # filtering. The user wants retro-crisp pixels, not smoothing — Bilinear
+  # (DuckStation default) washes out PS1 detail and JINC2 still smooths;
+  # Nearest keeps textures pixel-sharp. SpriteTextureFilter mirrors it for
+  # UI/HUD. Per-game inis under gamesettings/ OVERRIDE these — a global change
+  # in the GUI has no effect on games with a per-game profile (GT2 has one).
   - { section: GPU, option: Renderer,            value: Vulkan }
-  - { section: GPU, option: ResolutionScale,     value: "8" }
-  - { section: GPU, option: TextureFilter,       value: "JINC2" }
-  - { section: GPU, option: SpriteTextureFilter, value: "JINC2" }
-  - { section: GPU, option: Multisamples,        value: "2" }   # 2x MSAA safe across library
+  - { section: GPU, option: ResolutionScale,     value: "9" }
+  - { section: GPU, option: TextureFilter,       value: "Nearest" }
+  - { section: GPU, option: SpriteTextureFilter, value: "Nearest" }
+  - { section: GPU, option: Multisamples,        value: "4" }   # 4x MSAA free on the RTX 5090
   - { section: GPU, option: PerSampleShading,    value: "false" }
   - { section: GPU, option: TrueColor,           value: "true" }   # 24-bit output
   - { section: GPU, option: ScaledDithering,     value: "true" }   # keep dither alongside TrueColor
@@ -152,6 +155,9 @@ dg_duckstation_settings:
   # Display
   - { section: Display, option: VSync,              value: "true" }
   - { section: Display, option: OptimalFramePacing, value: "true" }
+  # Sharp-bilinear final upscale: crisp pixels on non-integer stretches
+  # (e.g. widescreen content), none of BilinearSmooth's haze.
+  - { section: Display, option: Scaling,            value: "BilinearSharp" }
 
   # Memory cards: PerGameTitle creates a separate pair of virtual memory
   # cards per game title, so GT1 saves don't share a card with GT2 etc.
@@ -180,20 +186,21 @@ dg_duckstation_settings:
 # running disc's serial matches the filename. Useful for per-game
 # renderer/PGXP tradeoffs that shouldn't apply globally.
 dg_duckstation_per_game_settings:
-  # Gran Turismo 2 — Simulation Disc (Silent's v1.2 patch).
+  # Gran Turismo 2 (Silent's v1.2 patch). Serials per redump: SCUS-94488 =
+  # SIMULATION disc (GT Mode — the one the user plays most), SCUS-94455 =
+  # ARCADE disc. (This file had them swapped until 2026-09-28.)
   # Research: https://projectcerbera.com/gt/2/duckstation/ (updated 2025-11-07)
   # + https://silentsblog.com/mods/gran-turismo-2/ + DuckStation wiki
-  # texture-replacement docs. User's complaint was "too smooth" default
-  # Bilinear filter; JINC2 is the community-consensus sharp-but-smooth
-  # replacement. The GT2 m3u bundles both the Simulation and Arcade
-  # discs; writing SCUS-94455 covers Simulation (the disc the user
-  # plays most). Arcade disc SCUS-94488 gets a sibling file below.
+  # texture-replacement docs. Texture filtering: Nearest on both texture and
+  # sprite paths — the user's stated preference is retro-crisp pixels, and
+  # these per-game files are why changing the GLOBAL filter in the GUI had no
+  # effect on GT2 (per-game wins over global).
   - serial: SCUS-94455
-    name: "Gran Turismo 2 (Simulation)"
+    name: "Gran Turismo 2 (Arcade)"
     settings:
-      # Texture filter — the user's specific fix
-      - { section: GPU, option: TextureFilter,       value: "JINC2" }
-      - { section: GPU, option: SpriteTextureFilter, value: "JINC2" }
+      # Texture filter — the user's specific fix: nearest neighbor, no blur
+      - { section: GPU, option: TextureFilter,       value: "Nearest" }
+      - { section: GPU, option: SpriteTextureFilter, value: "Nearest" }
       # GT2-specific PGXP: depth-buffer breaks GT2's skybox/road;
       # PreserveProjFP causes gaps in road LOD. Both OFF for GT2
       # even though the global defaults turn them on for other PS1 games.
@@ -206,9 +213,10 @@ dg_duckstation_per_game_settings:
       # the DuckStation-side hack and let the user enable the cheat
       # per-session via the cheat manager.
       - { section: GPU, option: WidescreenHack,      value: "false" }
-      # 4x MSAA is safe on GT2 and cleans car edges
-      - { section: GPU, option: Multisamples,        value: "4" }
-      - { section: GPU, option: PerSampleShading,    value: "false" }
+      # 8x MSAA + per-sample shading are free on the RTX 5090 and clean up
+      # car edges + alpha-tested textures (fences, trees)
+      - { section: GPU, option: Multisamples,        value: "8" }
+      - { section: GPU, option: PerSampleShading,    value: "true" }
       # TrueColor + ScaledDithering ON together: Cerbera's 2025
       # recalibration — 24-bit output but keep dithering on because
       # GT2's sky gradients rely on it.
@@ -232,17 +240,17 @@ dg_duckstation_per_game_settings:
       - { section: Display, option: AspectRatio,     value: "16:9" }
 
   - serial: SCUS-94488
-    name: "Gran Turismo 2 (Arcade)"
+    name: "Gran Turismo 2 (Simulation)"
     settings:
-      - { section: GPU, option: TextureFilter,       value: "JINC2" }
-      - { section: GPU, option: SpriteTextureFilter, value: "JINC2" }
+      - { section: GPU, option: TextureFilter,       value: "Nearest" }
+      - { section: GPU, option: SpriteTextureFilter, value: "Nearest" }
       - { section: GPU, option: PGXPDepthBuffer,        value: "false" }
       - { section: GPU, option: PGXPPreserveProjFP,     value: "false" }
       - { section: GPU, option: PGXPCulling,            value: "true" }
       - { section: GPU, option: PGXPTextureCorrection,  value: "true" }
       - { section: GPU, option: WidescreenHack,      value: "false" }
-      - { section: GPU, option: Multisamples,        value: "4" }
-      - { section: GPU, option: PerSampleShading,    value: "false" }
+      - { section: GPU, option: Multisamples,        value: "8" }
+      - { section: GPU, option: PerSampleShading,    value: "true" }
       - { section: GPU, option: TrueColor,           value: "true" }
       - { section: GPU, option: ScaledDithering,     value: "true" }
       - { section: GPU, option: DisableInterlacing,  value: "true" }
@@ -252,25 +260,28 @@ dg_duckstation_per_game_settings:
       - { section: Hacks, option: MaxVRAMWriteSplits,                      value: "1024" }
       - { section: Display, option: AspectRatio,     value: "16:9" }
 
-  # Gran Turismo 1 USA Rev 1 — SCUS-94949. Same filter upgrade and
-  # identical PGXP tradeoffs as GT2; fewer hacks needed. Widescreen
-  # relies on DuckStation's built-in WidescreenHack because no
+  # Gran Turismo 1 USA Rev 1 — SCUS-94194 (per the disc itself + gamedb;
+  # this seed used to target SCUS-94949, a serial that does not exist, so
+  # the GT1 profile silently never applied until 2026-09-28). Same filter
+  # upgrade and identical PGXP tradeoffs as GT2; fewer hacks needed.
+  # Widescreen relies on DuckStation's built-in WidescreenHack because no
   # community cheat pnach ships for GT1 (libretro DB, Silent's and
   # AeroWidescreen's repos all lack a GT1 widescreen — only 60fps
   # cheats). The built-in hack patches the projection matrix at render
   # time (not a display-level stretch), so 3D geometry renders 16:9;
   # HUD may show minor aliasing at high resolution scales.
-  - serial: SCUS-94949
+  - serial: SCUS-94194
     name: "Gran Turismo"
     settings:
-      - { section: GPU, option: TextureFilter,          value: "JINC2" }
-      - { section: GPU, option: SpriteTextureFilter,    value: "JINC2" }
+      - { section: GPU, option: TextureFilter,          value: "Nearest" }
+      - { section: GPU, option: SpriteTextureFilter,    value: "Nearest" }
       - { section: GPU, option: PGXPDepthBuffer,        value: "false" }
       - { section: GPU, option: PGXPPreserveProjFP,     value: "false" }
       - { section: GPU, option: PGXPCulling,            value: "true" }
       - { section: GPU, option: PGXPTextureCorrection,  value: "true" }
       - { section: GPU, option: WidescreenHack,      value: "true" }    # no GT1 cheat exists — use built-in
-      - { section: GPU, option: Multisamples,        value: "4" }
+      - { section: GPU, option: Multisamples,        value: "8" }
+      - { section: GPU, option: PerSampleShading,    value: "true" }
       - { section: GPU, option: TrueColor,           value: "true" }
       - { section: GPU, option: ScaledDithering,     value: "true" }
       - { section: GPU, option: DisableInterlacing,  value: "true" }
@@ -279,28 +290,246 @@ dg_duckstation_per_game_settings:
       - { section: Hacks, option: MaxVRAMWriteSplits,                      value: "1024" }
       - { section: Display, option: AspectRatio,     value: "16:9" }
 
-# Per-game DuckStation cheat deployments. Each entry copies a .cht file
-# (libretro format) from staging, renames it to <SERIAL>.cht inside
-# DuckStation's cheats dir, and flips the given cheat IDs from
-# enable=false to enable=true so AutoLoadCheats picks them up without
-# a GUI step.
+# Per-game DuckStation cheat deployments. Two shapes:
+#  - source + enable_ids: copies a .cht file (libretro format) from
+#    staging, renames it to <SERIAL>.cht inside DuckStation's cheats dir,
+#    and flips the given cheat IDs from enable=false to enable=true.
+#    INERT on current DuckStation: the boot-time parser (ParseFile in
+#    src/core/cheats.cpp) only understands the native [Name]-section
+#    format — libretro cheatN_ files produce "Unknown parameter"
+#    warnings and contribute ZERO codes at boot. Do not add new entries
+#    in this shape; use tag+content below.
+#  - tag + content + enable_names: writes the inline DuckStation-native
+#    cheat text to cheats/<serial>_<tag>.cht (the loader glob-matches
+#    <serial>*.cht) and activates the named cheats via the per-game
+#    gamesettings ini ([Cheats] EnableCheats=true + repeated Enable lines)
+#    — the only mechanism current DuckStation honors at boot (verified
+#    against src/core/cheats.cpp: ReloadEnabledLists reads [Cheats]
+#    Enable from the game settings layer only; EnablePatches matches
+#    names exactly).
 dg_duckstation_cheats:
-  # GT2 Simulation Disc v1.2 (Silent's-patched ISO the user runs).
-  # libretro cht ships the widescreen viewport fixes + screen-specific
-  # fixes by Aero / Silent. The game renders 4:3 geometry natively;
-  # without these cheats, `AspectRatio = 16:9` just stretches the 4:3
-  # output horizontally. Cheats 0-11 are all widescreen-related:
-  # 0 Additional Widescreen Fix, 1-2 Car Selection Fix (Arcade),
-  # 3 Pre-race Fix (Arcade), 4 Race Fix, 5 Rear view mirror Fix,
-  # 6 Post-race screen, 7 Bonus screen (Licenses), 8 Results screen,
-  # 9 Post-race screen (Extra), 10 Bonus (Trophy), 11 GT Mode screens.
+  # GT2 (Silent's-patched v1.2 ISOs the user runs; SCUS-94455 = Arcade
+  # disc, SCUS-94488 = Simulation disc per redump — same pack applies to
+  # both). All of Silent's GT2 improvements verbatim from
+  # github.com/CookiePLMonster/Console-Cheat-Codes (PS1/Gran Turismo 2/
+  # {16x9 Widescreen,60 FPS,8MB RAM,Full detail AI cars,Higher draw
+  # distance} — NTSC-U 1.2 files), merged into one native-format file
+  # (the libretro pack previously deployed as <serial>.cht was never
+  # parsed at boot — see above — so GT2's widescreen was silently
+  # inactive until 2026-10-01).
+  # The game renders 4:3 geometry natively; without the widescreen cheat,
+  # `AspectRatio = 16:9` would just stretch the output.
+  # 60 FPS WARNING per Silent: existing replays and rally-mode AI ghosts
+  # break at 60 FPS. Full detail AI cars requires both the 8MB cheat and
+  # Console.EnableRAM8MB=true (set in dg_duckstation_per_game_settings).
+  # NOTE: the DuckStation GUI's [Patches] Enable list (60 FPS, Metric
+  # units, Widescreen 16:9, Use 8MB RAM) is inert on this install —
+  # patches.zip is not bundled with the Arch package, so no game patches
+  # ever load; the dead [Patches] section was removed from SCUS-94455.ini
+  # on 2026-10-01 (it also shadowed the identical 'Enable = 60 FPS' line
+  # from lineinfile's whole-file regexp).
   - serial: SCUS-94455
-    source: "{{ dg_libretro_cheats_dir }}/Sony - PlayStation/Gran Turismo 2 USA (v1.2) (Duckstation).cht"
-    enable_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    tag: silent
+    content: &gt2_silent_content |
+      ; Gran Turismo 2 (USA v1.2) — Silent's improvement pack.
+      ; Source: github.com/CookiePLMonster/Console-Cheat-Codes,
+      ; PS1/Gran Turismo 2/{16x9 Widescreen,60 FPS,8MB RAM,
+      ; Full detail AI cars,Higher draw distance}/NTSC-U 1.2*.cht
+      [16:9 Widescreen]
+      Type = Gameshark
+      Activation = EndFrame
+      A40529DC 801EFB39
+      8005D5DC 0000
+      80057054 0000
+      00000000 FFFF
+      A4052A70 000000F6
+      8005D5DC 0000
+      80057054 0000
+      00000000 FFFF
+      A4020A90 3084007F
+      A701E578 FF80FF56
+      A701E580 008000AA
+      A70201C4 FF97FF74
+      A70201CC 0069008C
+      A701536C 014001AA
+      00000000 FFFF
+      A401F888 AEB40008
+      A70100D0 FF60FF2B
+      A70100D4 00A000D5
+      00000000 FFFF
+      A403EC74 02602021
+      A70295EC FFC4FFB0
+      A70295F0 003C0050
+      00000000 FFFF
+      A4057054 260201C0
+      A70497CA A485A489
+      A7049F48 00C8010A
+      A7049F50 302100C8
+      A7049F52 00A03406
+      A704C194 00C8010A
+      A704C19C 302100C8
+      A704C19E 00A03406
+      A704E07C 00000160
+      A704E07E 00002405
+      A704E088 022000C4
+      A704E08A 8FB2A485
+      A704E064 016001D5
+      A7050C14 FF50FF16
+      A7050C1C 00B000EA
+      00000000 FFFF
+      A405D5DC 8005A5F8
+      A7058070 00C8010A
+      A7058078 302100C8
+      A705807A 00A03406
+      A7058924 00C8010A
+      A705892C 302100C8
+      A705892E 00A03406
+      A7059A08 016001D5
+      00000000 FFFF
+      A402442C 800229A8
+      A701CDF4 00B30086
+      A701CDFC FFCEFFDB
+      A701CE04 03200258
+      00000000 FFFF
+      [60 FPS]
+      Type = Gameshark
+      Activation = EndFrame
+      E01D5864 0002
+      301D5864 0001
+      A401F888 AEB40008
+      A70168C8 00020000
+      A7019644 00020000
+      00000000 FFFF
+      A003EC74 02602021
+      A7029550 00020000
+      [Use 8MB RAM for polygon buffers]
+      Type = Gameshark
+      Activation = EndFrame
+      A401F888 AEB40008
+      D121F88A AEB4
+      A7016A6C 000E8020
+      D121F88A AEB4
+      A7016A70 57000000
+      D121F88A AEB4
+      A7016A7C 00030007
+      D121F88A AEB4
+      A7016A78 28210000
+      D121F88A AEB4
+      A7016A7A 02250000
+      D121F88A AEB4
+      A7016A88 80000000
+      00000000 FFFF
+      [Full detail AI cars (Needs 8MB RAM)]
+      Type = Gameshark
+      Activation = EndFrame
+      A401F888 AEB40008
+      A7014344 00405112
+      A7014346 16A00800
+      A7014348 00030001
+      00000000 FFFF
+      [Slightly higher draw distance]
+      Type = Gameshark
+      Activation = EndFrame
+      A403EC74 02602021
+      A7020420 0004810D
+      A7020422 14400800
+      00000000 FFFF
+    enable_names: &gt2_silent_enable
+      - '16:9 Widescreen'
+      - '60 FPS'
+      - 'Use 8MB RAM for polygon buffers'
+      - 'Full detail AI cars (Needs 8MB RAM)'
+      - 'Slightly higher draw distance'
 
-  - serial: SCUS-94488   # Arcade disc — same cheat pack applies to shared viewport
-    source: "{{ dg_libretro_cheats_dir }}/Sony - PlayStation/Gran Turismo 2 USA (v1.2) (Duckstation).cht"
-    enable_ids: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+  - serial: SCUS-94488   # Simulation disc — identical pack
+    tag: silent
+    content: *gt2_silent_content
+    enable_names: *gt2_silent_enable
+
+  # Gran Turismo money cheats — user wants these permanent and on by
+  # default (2026-09-29). `content` deploys a DuckStation-native-format
+  # .cht as cheats/<serial>_<tag>.cht (the loader glob-matches
+  # <serial>*.cht), and `enable_names` writes
+  #   [Cheats] EnableCheats = true  +  repeated  Enable = <name>
+  # lines into gamesettings/<serial>.ini — on current DuckStation the
+  # game-INI enable list is what actually activates cheats at boot
+  # (verified against src/core/cheats.cpp: ReloadEnabledLists reads
+  # [Cheats] Enable string-list from the game settings layer only).
+  - serial: SCUS-94194   # Gran Turismo (USA)
+    tag: money
+    content: |
+      ; Gran Turismo USA — money cheat, on-by-default per user request.
+      ; Disc is redump Rev 1 / Greatest Hits (v1.1): EXE date 1998-06-17
+      ; verified from the ISO9660 tree of our CHD (v1.0 is 1998-04-15).
+      ; The v1.0 money address (0x09B864) does NOT apply to this disc.
+      [Money\1 Billion Credits (GT Mode)]
+      Type = Gameshark
+      Activation = EndFrame
+      9009B8F4 3B9ACA00
+    enable_names:
+      - 'Money\1 Billion Credits (GT Mode)'
+
+  # GT1 60 FPS — Silent's patch (asasega original, Silent expansion
+  # re-enabling tire smoke + rear view mirror that GT1's leftover Hi-Fi
+  # mode disables). Codes from Console-Cheat-Codes
+  # PS1/Gran Turismo/60 FPS/NTSC-U 1.1.cht — our disc is Rev 1 (v1.1).
+  # The CHTDB pack (cheats/SCUS-94194.cht) also ships a "60 FPS" entry but
+  # with v1.0 addresses (0B6318/02E580/02AA74) that do NOT apply to this
+  # disc; the "(Silent)" suffix keeps the names distinct so only these
+  # v1.1 codes activate.
+  - serial: SCUS-94194   # Gran Turismo (USA Rev 1)
+    tag: 60fps
+    content: |
+      ; Gran Turismo USA Rev 1 (v1.1) — Silent's 60 FPS patch.
+      ; https://github.com/CookiePLMonster/Console-Cheat-Codes
+      ;   PS1/Gran Turismo/60 FPS/NTSC-U 1.1.cht
+      ; 60 FPS limit lift + re-enable tire smoke + re-enable rear view mirror.
+      [60 FPS (Silent)]
+      Type = Gameshark
+      Activation = EndFrame
+      A60B6348 00020001
+      A702E548 00020001
+      A702AA3C 00020001
+    enable_names:
+      - '60 FPS (Silent)'
+
+  # GT2 Simulation Disc v1.2 money cheat. NOTE: DuckStation's game
+  # settings layer for this disc set is anchored on SCUS-94455 (the
+  # Arcade serial is the disc-set leader — the log shows "Loading game
+  # settings from 'SCUS-94455.ini'" even when booting the Simulation
+  # disc), so the enable list must live in the 94455 ini while the .cht
+  # ships for both serials.
+  - serial: SCUS-94488   # Gran Turismo 2 Simulation Disc (USA v1.2)
+    tag: money
+    content: |
+      ; Gran Turismo 2 Simulation (USA v1.2) — money cheat.
+      ; v1.2-specific max-cash address (v1.0 codes are shifted — the
+      ; widely copied "Max Cash After One Race" does not apply here).
+      ; Writes 0x1525E0FF = 354,615,039 Cr, above the 99,999,999
+      ; display cap; EndFrame activation keeps it pinned, so purchases
+      ; never drain credits while the cheat is on.
+      [Money\Max Cash (GT Mode)]
+      Type = Gameshark
+      Activation = EndFrame
+      801D156A 1525
+      801D1568 E0FF
+    enable_names:
+      - 'Money\Max Cash (GT Mode)'
+
+  - serial: SCUS-94455   # GT2 disc-set leader — carries the [Cheats] enable
+    tag: money
+    content: |
+      ; Gran Turismo 2 (USA v1.2, disc-set leader file) — see the
+      ; SCUS-94488 money entry; identical cheat, deployed for both
+      ; serials because DuckStation reads the game ini from 94455 for
+      ; the whole set.
+      [Money\Max Cash (GT Mode)]
+      Type = Gameshark
+      Activation = EndFrame
+      801D156A 1525
+      801D1568 E0FF
+    enable_names:
+      - 'Money\Max Cash (GT Mode)'
 
 # Supermodel (Sega Model 3). The 0.3a binary resolves its tree under
 # ~/.supermodel absolutely (NOT ~/.config/supermodel — the AUR wrapper
@@ -378,9 +607,9 @@ dg_emulator_commands:
   - flycast
   - dolphin-emu
   - PPSSPPSDL
-  - rpcs3
+  # rpcs3 verified via the install_rpcs3 AppImage (not a PATH command anymore)
   - shadps4
-  - xemu
+  # xemu verified via the install_xemu AppImage + bin/xemu wrapper
 
 # Dolphin controller config files to copy.
 dg_dolphin_configs:

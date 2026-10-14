@@ -1,0 +1,31 @@
+---
+# Sonic Rush Rerun (Anniversary Demo) — fan reimagining of the Nintendo DS
+# Sonic Rush, on Unity (MonoBleedingEdge, FMOD). WINDOWS-only → wine-11.8
+# with the established recipe (UseEGL=N GLX pin + WineBus SDL for the 8BitDo),
+# fullscreen via gamescope integer scaling. Opt-in role
+# install_sonic_rush_rerun. See docs/sonic-fan-pack.md.
+#
+# Source: the user's downloaded rar on the NAS (GameJolt page
+# gamejolt.com/games/sonicrushrerun/1030374 — GameJolt has no public releases
+# API; ogm.yml fingerprints the page to badge new demos). The rar holds a
+# top-level "Sonic Rush Rerun/" folder with "Sonic Rush Rerun.exe" inside.
+
+dg_sonicrush_version: "anniversary-demo"
+dg_sonicrush_rar: "{{ dg_roms_final_root }}/PC/sonic-rush-rerun-anniversary-demo.rar"
+
+dg_sonicrush_install_dir: "{{ dg_box_home }}/Games/sonic-rush-rerun"
+dg_sonicrush_game_dir: "{{ dg_sonicrush_install_dir }}/Sonic Rush Rerun"
+dg_sonicrush_exe: "Sonic Rush Rerun.exe"
+dg_sonicrush_bin: "{{ dg_box_home }}/bin/sonic-rush-rerun"
+dg_sonicrush_prefix: "{{ dg_box_home }}/wineprefixes/sonic-rush-rerun"
+dg_sonicrush_wine_bin_dir: "{{ dg_pc_racing_wine_runner_root }}/wine-11.8/usr/bin"
+dg_sonicrush_gamescope_args: "-W 3840 -H 2160 -S integer -f"
+
+dg_sonicrush_winebus_registry:
+  - { name: DisableHidraw, value: 1 }
+  - { name: DisableInput, value: 1 }
+  - { name: "Enable SDL", value: 1 }
+  - { name: "Map Controllers", value: 1 }
+
+dg_sonicrush_main_output: "DP-1"
+dg_sonicrush_revert: false

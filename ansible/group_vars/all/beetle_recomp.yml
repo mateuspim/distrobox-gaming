@@ -1,0 +1,37 @@
+---
+# Beetle Adventure Racing! Recompiled (danielgomesvieira2000/beetle-adventure-racing-recomp)
+# — an N64Recomp + N64ModernRuntime + RT64 static recomp PC port of Beetle
+# Adventure Racing! (N64, USA). Opt-in role install_bar_recomp.
+# See docs/beetle-recomp.md.
+#
+# Upstream ships Windows-x64 only (the native Linux build compiles but crashes
+# during boot per docs/KNOWN_ISSUES.md), so — like Wave Race 64 Recompiled — we
+# run the prebuilt WINDOWS build under Wine: RT64's D3D12 goes through
+# GE-Proton's vkd3d-proton to the RTX (VK_ICD pinned nvidia).
+
+dg_bar_version: "0.4.2-alpha"
+dg_bar_zip_url: "https://github.com/danielgomesvieira2000/beetle-adventure-racing-recomp/releases/download/v{{ dg_bar_version }}/beetle-adventure-racing-recomp-v{{ dg_bar_version }}-windows-x64.zip"
+dg_bar_zip_sha256: "b7ad13d3518f6645d32b66bea2c8832595cfea76838299d800e20bf943a704d4"
+
+dg_bar_root: "{{ dg_roms_final_root }}/PC/beetle-recomp"
+dg_bar_zip: "{{ dg_bar_root }}/beetle-adventure-racing-recomp-v{{ dg_bar_version }}-windows-x64.zip"
+dg_bar_install_dir: "{{ dg_box_home }}/tools/beetle-recomp"
+dg_bar_exe: beetle-adventure-racing-recomp.exe
+
+# ROM: Beetle Adventure Racing! (USA) ONLY, z64 sha1
+# e5ab4d226c08d22f68a2edcc48870203e67454b8 (16 MiB). The NAS dump is the
+# byte-swapped .v64; the role converts it to a big-endian .z64 + verifies sha1.
+dg_bar_rom_src: "{{ dg_roms_final_root }}/n64/Beetle Adventure Racing! (USA) (En,Fr,De).v64"
+dg_bar_rom_z64: "{{ dg_bar_root }}/Beetle Adventure Racing! (USA).z64"
+dg_bar_rom_sha1: "e5ab4d226c08d22f68a2edcc48870203e67454b8"
+
+# Wine prefix + launcher.
+dg_bar_prefix: "{{ dg_box_home }}/wineprefixes/beetle-recomp"
+dg_bar_launcher: "{{ dg_box_home }}/bin/beetle-recomp"
+dg_bar_nvidia_icd: /usr/share/vulkan/icd.d/nvidia_icd.json
+# GE-Proton supplies DXVK (dxgi,d3d11) + vkd3d-proton (d3d12,d3d12core).
+dg_bar_geproton_glob: "{{ dg_box_home }}/.local/share/Steam/compatibilitytools.d/GE-Proton*"
+dg_bar_dll_overrides: "dxgi,d3d11,d3d12,d3d12core=n,b"
+
+dg_bar_packages: [wine, sdl2]
+dg_bar_revert: false

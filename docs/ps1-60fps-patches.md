@@ -46,6 +46,26 @@ Contrast with games that tie physics directly to frame count (e.g.
 Gran Turismo series, Ridge Racer V on PS2): doubling render there
 doubles physics too, which desyncs replays, AI, and save compatibility.
 
+## Gran Turismo 1 (SCUS-94194, USA Rev 1) & Gran Turismo 2 (SCUS-94455/94488, USA v1.2)
+
+**Silent's 60 FPS patches** (original codes by asasega, expanded by
+Silent/CookiePLMonster to re-enable the tire smoke + rear-view mirror
+that GT1's leftover Hi-Fi mode disables) — deployed and on by default
+since 2026-10-01 via `dg_duckstation_cheats`
+(`cheats/SCUS-94194_60fps.cht`, `cheats/SCUS-944{55,88}_silent.cht`).
+Version matters: GT1 uses the **NTSC-U 1.1** codes for our Rev 1 disc
+(the CHTDB pack's same-named entry carries v1.0 addresses — wrong for
+this disc); GT2 uses the **NTSC-U 1.2** codes.
+
+Caveat per Silent: unlike CMR1, GT ties physics to render rate — at
+60 FPS, **existing replays and rally-mode AI ghosts desync/break**.
+Normal racing, licenses and time trials are unaffected. Toggle the
+`60 FPS` cheat off in Game Properties → Cheats before watching replays
+or racing rally events with ghosts.
+
+Setup details + the libretro-cht activation trap:
+[gt2-duckstation.md](gt2-duckstation.md).
+
 ## References
 
 - [SILKYSMOOTH cheat description (SuperCheats)](https://www.supercheats.com/playstation/colin-mcrae-rally/649/silkysmooth-60-fps-br-open/)
@@ -53,3 +73,6 @@ doubles physics too, which desyncs replays, AI, and save compatibility.
 - [Speedrun.com CMR2 DuckStation settings](https://www.speedrun.com/cmr2/forums/13zdt)
 - [GameHacking.org CMR2 NTSC-U codes](https://gamehacking.org/game/88607)
 - [romhacking.net CMR 2.1 fan hack](https://www.romhacking.net/hacks/322/)
+- [Silent's Blog — GT2 mods index](https://silentsblog.com/mods/gran-turismo-2/)
+- [Console-Cheat-Codes — GT1 60 FPS](https://github.com/CookiePLMonster/Console-Cheat-Codes/tree/master/PS1/Gran%20Turismo/60%20FPS)
+- [Console-Cheat-Codes — GT2 60 FPS](https://github.com/CookiePLMonster/Console-Cheat-Codes/tree/master/PS1/Gran%20Turismo%202/60%20FPS)

@@ -72,3 +72,13 @@ dg_gt5_install_debug_cam: true
 #  - a tarball of the pristine v2.11 PDIPFS before the mod overlays it
 # Both are protected by `.dg-*-done` markers so re-runs don't churn.
 dg_gt5_backup_dir: "{{ dg_external_games_root }}/ps2/gt5-backups"
+
+# GT5 save editor (cash / licenses / XP on the RPCS3 plaintext save).
+# zyzalfors/GT5SaveEditor sources rebuilt as a small CLI wrapper because
+# RPCS3 stores GT5 saves already decrypted with no PARAM.PFD, which the
+# upstream frontend requires. Build archived on the NAS; usage:
+#   gt5save <GT5.0 path> read | set cash 99999999
+# GT6 equivalent for later: {{ dg_external_games_root }}/tools/gtsavedata
+# (GTSaveData 2.3.0 linux-amd64, decrypts GT5+GT6 saves).
+dg_gt5_save_editor_src: "{{ dg_external_games_root }}/tools/gt5-save-editor"
+dg_gt5_save_editor_dest: "{{ dg_box_home }}/.local/share/gt5-save-editor"

@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic Galactic (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_sonicgalactic_bin }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic Galactic Demo 2 — Hatch-engine classic-Sonic fangame, under Wine.
+Categories=Game;
+Keywords=sonic;galactic;fangame;hatch;
+StartupWMClass=SonicGalactic.exe;
+{{ ogm_metadata('gaming-sonic-galactic') }}

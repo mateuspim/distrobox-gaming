@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+install_dir="{{ dg_opensc2k_install_dir }}"
+if [ ! -x "$install_dir/OpenSC2K.x86_64" ]; then
+  printf '%s\n' "OpenSC2K is missing from $install_dir" >&2
+  exit 1
+fi
+
+cd "$install_dir"
+exec ./OpenSC2K.x86_64 "$@"

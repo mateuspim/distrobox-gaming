@@ -1,0 +1,7 @@
+---
+- name: Install OpenSC2K in the gaming box
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_opensc2k

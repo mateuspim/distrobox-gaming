@@ -63,16 +63,18 @@ dg_core_aur_packages:
   - flycast-git
   - emulationstation-de
 
+# rpcs3-bin removed — RPCS3 is now the repo-managed upstream AppImage
+# (install_rpcs3, group_vars/all/rpcs3.yml), gated by dg_rpcs3_enabled.
 dg_selected_console_aur_packages: >-
   {{
-    (['rpcs3-bin'] if dg_rpcs3_enabled | bool else []) +
     (['eden-bin'] if dg_eden_enabled | bool else []) +
     (['cemu-bin'] if dg_cemu_enabled | bool else []) +
     (['shadps4-bin'] if dg_shadps4_enabled | bool else [])
   }}
 
 dg_advanced_aur_packages:
-  - xemu-bin
+  # xemu-bin removed — xemu is now the repo-managed upstream AppImage
+  # (install_xemu, group_vars/all/xemu.yml; dev build ahead of AUR stable).
   # vita3k-bin: SKIPPED. Its AUR PKGBUILD fails to build (the nightly zip
   # dropped org.vita3k.vita3k.metainfo.xml, so package() errors out) —
   # verified failing on a from-scratch rebuild 2026-08-01. Not our bug.

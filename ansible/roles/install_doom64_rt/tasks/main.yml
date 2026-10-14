@@ -1,0 +1,139 @@
+---
+# Doom 64 RT — native Linux AppImage on the RTX (no Wine).
+# See group_vars/all/doom64_rt.yml and docs/doom64-rt.md.
+
+- name: Revert Doom 64 RT when requested
+  when: dg_d64rt_revert | bool
+  block:
+    - name: Remove the launcher, install dir and desktop entry
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_d64rt_launcher }}"
+        - "{{ dg_d64rt_install_dir }}"
+        - "{{ dg_desktop_render_dir }}/gaming-doom64-rt.desktop"
+    - name: Refresh host launchers after removing Doom 64 RT
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      changed_when: true
+    - name: Report reverted
+      ansible.builtin.debug:
+        msg: "Doom 64 RT removed. The NAS AppImage + ModDB archives and ~/.config/doom64-rt are untouched."
+
+- name: Install Doom 64 RT
+  when: not (dg_d64rt_revert | bool)
+  block:
+    - name: Download the pinned AppImage to the NAS
+      ansible.builtin.get_url:
+        url: "{{ dg_d64rt_appimage_url }}"
+        dest: "{{ dg_d64rt_appimage }}"
+        checksum: "sha256:{{ dg_d64rt_appimage_sha256 }}"
+        mode: "0644"
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_d64rt_install_dir }}"
+        - "{{ dg_box_home }}/bin"
+
+    - name: Install the AppImage into the box (version-gated)
+      ansible.builtin.shell: |
+        set -eu
+        if [ -f "{{ dg_d64rt_install_dir }}/{{ dg_d64rt_appimage_name }}" ] &&
+           grep -qx "{{ dg_d64rt_version }}" "{{ dg_d64rt_install_dir }}/.dg-installed-ref" 2>/dev/null; then
+          exit 0
+        fi
+        cp "{{ dg_d64rt_appimage }}" "{{ dg_d64rt_install_dir }}/{{ dg_d64rt_appimage_name }}"
+        chmod 0755 "{{ dg_d64rt_install_dir }}/{{ dg_d64rt_appimage_name }}"
+        printf "%s\n" "{{ dg_d64rt_version }}" > "{{ dg_d64rt_install_dir }}/.dg-installed-ref"
+        echo d64rt-installed
+      register: _d64rt_install
+      changed_when: "'d64rt-installed' in _d64rt_install.stdout"
+
+    - name: Check the user-supplied ModDB archives (Retribution + music)
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ dg_d64rt_retribution_archive }}"
+        - "{{ dg_d64rt_music_archive }}"
+      register: _d64rt_moddb
+
+    - name: Tell the user what to download when the ModDB archives are missing
+      ansible.builtin.debug:
+        msg:
+          - "MISSING user downloads (ModDB is Cloudflare-walled, curl can't fetch them). Save BOTH as:"
+          - "  {{ dg_d64rt_retribution_archive }}  <- Doom 64: Retribution v1.5 (moddb.com/mods/doom-64-retribution)"
+          - "  {{ dg_d64rt_music_archive }}  <- OGG music pack v1.3 (same page's addons)"
+          - "Then re-run this playbook — everything else is already in place."
+      when: _d64rt_moddb.results | selectattr('stat.exists', 'false') | list | length > 0
+
+    - name: Populate the game/ dir (Retribution + D64MUS.PK3 + doom2.wad)
+      ansible.builtin.shell: |
+        set -eu
+        want="$(sha256sum "{{ dg_d64rt_retribution_archive }}" "{{ dg_d64rt_music_archive }}" "{{ dg_d64rt_doom2_wad }}" | sha256sum | cut -d' ' -f1)"
+        got="$(cat "{{ dg_d64rt_install_dir }}/.dg-game-ref" 2>/dev/null || true)"
+        [ "$want" = "$got" ] && exit 0
+        game="{{ dg_d64rt_install_dir }}/game"
+        rm -rf "$game"
+        mkdir -p "$game"
+        unzip -oq "{{ dg_d64rt_retribution_archive }}" -d "$game"
+        # The Retribution zip ships its files inside a top-level folder —
+        # flatten it so the WAD/brightmaps/soundfont sit at game/ root.
+        while [ "$(find "$game" -mindepth 1 -maxdepth 1 -type d | wc -l)" = 1 ] &&
+              [ "$(find "$game" -mindepth 1 -maxdepth 1 -type f | wc -l)" = 0 ]; do
+          sub="$(find "$game" -mindepth 1 -maxdepth 1 -type d)"
+          mv "$sub"/* "$game"/ && rmdir "$sub"
+        done
+        unzip -oq "{{ dg_d64rt_music_archive }}" -d "$game"
+        cp "{{ dg_d64rt_doom2_wad }}" "$game/doom2.wad"
+        printf "%s" "$want" > "{{ dg_d64rt_install_dir }}/.dg-game-ref"
+        echo game-populated
+      when: _d64rt_moddb.results | selectattr('stat.exists', 'true') | list | length == 2
+      register: _d64rt_game
+      changed_when: "'game-populated' in _d64rt_game.stdout"
+
+    - name: Verify the setup with the AppImage's own check
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          cd "{{ dg_d64rt_install_dir }}"
+          ./{{ dg_d64rt_appimage_name }} check 2>&1 | tail -15
+        '
+      when: _d64rt_moddb.results | selectattr('stat.exists', 'true') | list | length == 2
+      register: _d64rt_check
+      changed_when: false
+
+    - name: Deploy the launcher
+      ansible.builtin.template:
+        src: doom64-rt.sh.j2
+        dest: "{{ dg_d64rt_launcher }}"
+        mode: "0755"
+
+    - name: Render the desktop entry
+      ansible.builtin.template:
+        src: gaming-doom64-rt.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-doom64-rt.desktop"
+        mode: "0644"
+
+    - name: Install the desktop entry into the host applications dir
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _d64rt_host
+      changed_when: "'installed ' in _d64rt_host.stdout or 'removed stale ' in _d64rt_host.stdout"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          Doom 64 RT {{ dg_d64rt_version }} (native Linux AppImage) at
+          {{ dg_d64rt_install_dir }}; launcher {{ dg_d64rt_launcher }}.
+          DLSS auto-selected on the RTX 5090; config/saves in
+          ~/.config/doom64-rt. Revert: -e dg_d64rt_revert=true.

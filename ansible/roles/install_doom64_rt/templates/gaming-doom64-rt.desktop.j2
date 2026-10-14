@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Doom 64 RT (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_d64rt_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Doom 64 RT — path-traced Doom 64: Retribution (gzdoom-rt + RTGL1), native Linux.
+Categories=Game;
+Keywords=doom;doom64;rt;raytracing;path-tracing;gzdoom;
+StartupWMClass=gzdoom;
+{{ ogm_metadata('gaming-doom64-rt') }}

@@ -32,13 +32,16 @@
       changed_when: "'saved' in _w3_dl.stdout"
       failed_when: false
       no_log: true
-      when: lookup('ansible.builtin.env', 'NEXUS_MODS_API_KEY') | length > 0
+      when:
+        - lookup('ansible.builtin.env', 'NEXUS_MODS_API_KEY') | length > 0
+        - not (item.no_download | default(false))
 
     - name: Install each mod's mod*/dlc* folders (records a manifest)
       ansible.builtin.shell: |
         set -eu
         game={{ dg_witcher3_game_dir | quote }}
         variant={{ (item.variant | default('')) | quote }}
+        root_merge={{ item.root_merge | default(false) }}
         manifest="$game/.dg-witcher3-{{ item.id }}.manifest"
         [ -f "$manifest" ] && { echo "skip"; exit 0; }
         arch="$(find {{ (dg_witcher3_staging_root + '/' + item.id + '/' + item.file) | quote }} -type f \
@@ -53,19 +56,35 @@
           [ -n "$root" ] || { echo "NO-VARIANT" >&2; exit 4; }
         fi
         mkdir -p "$game/mods" "$game/dlc"
-        find "$root" -mindepth 1 -maxdepth 1 -type d \( -name 'mod*' -o -name 'dlc*' \) > "$tmp/.dirs"
-        [ -s "$tmp/.dirs" ] || { echo "NO-MODDIR" >&2; exit 5; }
         : > "$manifest.tmp"
-        while IFS= read -r d; do
-          [ -n "$d" ] || continue
-          name="$(basename "$d")"
-          case "$name" in
-            dlc*) rel="dlc/$name" ;;
-            *)    rel="mods/$name" ;;
-          esac
-          rsync -a "$d/" "$game/$rel/"
-          echo "$rel" >> "$manifest.tmp"
-        done < "$tmp/.dirs"
+        if [ "$root_merge" = "True" ]; then
+          # Archive top level is already {bin, dlc, mods} (e.g. Brothers in
+          # Arms): merge each tree onto the game root. Manifest records
+          # mods/dlc child dirs (rm -rf on revert) and individual bin files
+          # (rm -f on revert).
+          for top in mods dlc bin; do
+            [ -d "$root/$top" ] || continue
+            rsync -a "$root/$top/" "$game/$top/"
+            if [ "$top" = "bin" ]; then
+              (cd "$root" && find bin -type f) | sed 's|^|FILE:|' >> "$manifest.tmp"
+            else
+              find "$root/$top" -mindepth 1 -maxdepth 1 -type d -printf "$top/%f\n" >> "$manifest.tmp"
+            fi
+          done
+        else
+          find "$root" -mindepth 1 -maxdepth 1 -type d \( -name 'mod*' -o -name 'dlc*' \) > "$tmp/.dirs"
+          [ -s "$tmp/.dirs" ] || { echo "NO-MODDIR" >&2; exit 5; }
+          while IFS= read -r d; do
+            [ -n "$d" ] || continue
+            name="$(basename "$d")"
+            case "$name" in
+              dlc*) rel="dlc/$name" ;;
+              *)    rel="mods/$name" ;;
+            esac
+            rsync -a "$d/" "$game/$rel/"
+            echo "$rel" >> "$manifest.tmp"
+          done < "$tmp/.dirs"
+        fi
         mv "$manifest.tmp" "$manifest"
         echo "w3-installed"
       loop: "{{ dg_witcher3_mods }}"

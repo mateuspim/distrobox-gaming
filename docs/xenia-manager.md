@@ -56,6 +56,107 @@ If your Xbox 360 ROMs live elsewhere, override in
 dg_xenia_game_dir: /your/path/xbox360
 ```
 
+## Adding games to the catalog
+
+Xenia Manager keeps its catalog in `Config/games.json` and populates it through
+its **GUI only** — *Library → Add Games → scan a folder* points it at
+`dg_xenia_game_dir`, boots each title to read its title-ID/media-ID, and
+downloads artwork + compatibility ratings. There is no import CLI, so add games
+through the GUI (the scan skips titles already added). Re-run the scan whenever
+you drop new ISOs into `roms_heavy/xbox360`. Hand-editing `games.json` is not
+recommended — a malformed entry can drop the whole catalog, and entries added
+that way have no artwork.
+
+If the same game gets imported twice you get a duplicate entry (Xenia Manager
+renames the second `… (1)`); remove the redundant entry from `games.json` (and
+its `GameData/<title>/` artwork dir + `…/config/<title>.config.toml`) with
+Xenia closed.
+
+## Showing Xbox 360 games in ES-DE
+
+The ES-DE **xbox360** system scans `roms_heavy/xbox360` for `.iso`/`.xex` files
+and launches each via `bin/xenia-canary-launch`, which resolves the ROM to its
+Xenia Manager per-game config. So **disc titles you drop in as ISOs (or the
+modded `default.xex` subdirs) appear in ES-DE automatically** on its next scan
+(`dg_esde_parse_gamelist_only: false` keeps the scan on; otherwise run
+`esde-rescan` — see [esde-fast-startup.md](esde-fast-startup.md)).
+
+**XBLA (Arcade) titles are the exception.** They live under `xbla/` as
+extension-less content packages (`<title>/<mediaid>/000D0000/<hash>`), which
+ES-DE's file scan can't see — so they never show up next to the disc games. The
+helper **`bin/esde-xenia-xbla-stubs`** (deployed by `scripts_in_box`) fixes that:
+it reads the Xenia Manager catalog and writes one small **`<title>.xbla` stub**
+per XBLA game into `xbla/`, each pointing at that game's content package.
+`.xbla` is a scanned extension for the xbox360 system, and `xenia-canary-launch`
+resolves a stub back to its content file (and thus its per-game config, where
+`license_mask` lives). Run it after importing new XBLA games, then rescan ES-DE:
+
+```sh
+distrobox enter gaming -- esde-xenia-xbla-stubs
+distrobox enter gaming -- esde-rescan     # only needed if fast-startup is on
+```
+
+It is idempotent (rewrites only changed stubs, prunes stubs whose title left the
+catalog). A game imported twice in Xenia Manager (`… (1)`) yields a second stub;
+remove the duplicate catalog entry (see above) and re-run to prune it.
+
+## Unlocking XBLA (Arcade) games
+
+XBLA titles ship as a **trial** that checks whether you own the full-game
+license — on real hardware that comes from your Xbox Live account. Xenia has no
+real Live, so it reports ownership through each game's **`license_mask`** config
+setting (default `0` = own nothing → the game shows locked and nags you to "go
+online"). Setting it to `1` (own the first license = full game) unlocks the
+title **offline**.
+
+The helper **`bin/xenia-unlock-xbla`** (deployed by `scripts_in_box`) does this
+in bulk: it reads the Xenia Manager catalog, finds every XBLA title (content
+type `000D0000`), sets `license_mask = 1` in each one's config (backing up
+`.bak`), and bumps the global `xenia-canary.config.toml` default so
+freshly-imported games start unlocked. Run it after importing new XBLA games,
+with **Xenia closed** (Xenia rewrites its configs on exit; the helper refuses if
+Xenia or the Manager is running):
+
+```sh
+distrobox enter gaming -- xenia-unlock-xbla
+```
+
+Notes:
+
+- A few titles with multiple entitlements want `license_mask = -1` (own **all**
+  licenses) rather than `1` — set those by hand in the game's config (or via
+  Xenia Manager → the game → Xenia settings).
+- `license_mask` unlocks only the local trial→full / DLC entitlement. It does
+  **not** provide real online multiplayer or leaderboards (no actual Live;
+  Xenia's netplay is separate and experimental).
+
+## UI sizing on the 4K panel
+
+Xenia Manager is an Avalonia app under Wine, and its default UI is tiny on a 4K
+display. Two knobs (both in `group_vars/all/xenia.yml`, applied by
+`install-xenia.yml` **only while Xenia Manager is closed** — it rewrites its
+config/registry on exit):
+
+- **`dg_xenia_grid_zoom`** (default `2`) — the game-library grid **icon zoom**
+  (`Config/config.json` → `ui.window.game_library.grid_view.zoom`). This is the
+  reliable size control; bigger icons are far easier to click.
+- **`dg_xenia_wine_dpi`** (default `96`, **enforced** on every run while the
+  manager is closed; `0` = leave unmanaged) — the Wine prefix `LogPixels` DPI.
+  **History:** it used to be pinned at 192 (200%) as a HiDPI baseline because
+  Avalonia ignored Wine's `LogPixels`. Wine **11.18** (box update 2026-09-25)
+  shipped a "fix monitor DPI awareness" change, and since then Avalonia applies
+  `LogPixels` to the whole window — at 192 the manager rendered at 2x, sprawling
+  across monitors with unreachable buttons. Keep it at 96; the in-app zoom
+  slider + grid zoom are the dependable size controls.
+  `scripts/check-box-sonames.sh` also audits this value after box updates.
+
+Re-apply after changing either (Xenia Manager closed):
+
+```sh
+cd ansible
+ansible-playbook install-xenia.yml
+```
+
 ## Why `pacman -Sy` and not `-Syu`
 
 This role installs `wine` + `winetricks` with `pacman -Sy --needed` (sync

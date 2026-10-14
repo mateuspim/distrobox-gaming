@@ -1,0 +1,202 @@
+---
+- name: Revert OpenSC2K when requested
+  when: dg_opensc2k_revert | bool
+  block:
+    - name: Remove OpenSC2K program and launcher
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_opensc2k_root }}"
+        - "{{ dg_opensc2k_launcher }}"
+        - "{{ dg_desktop_render_dir }}/gaming-opensc2k.desktop"
+    - name: Refresh host launchers
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _opensc2k_host_launchers
+      changed_when: >-
+        'installed ' in _opensc2k_host_launchers.stdout or
+        'removed stale ' in _opensc2k_host_launchers.stdout
+
+- name: Install OpenSC2K
+  when: not (dg_opensc2k_revert | bool)
+  block:
+    - name: Create OpenSC2K directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_opensc2k_root }}"
+        - "{{ dg_opensc2k_cache_dir }}"
+        - "{{ dg_box_home }}/bin"
+
+    - name: Download verified OpenSC2K Linux release
+      ansible.builtin.get_url:
+        url: "{{ dg_opensc2k_archive_url }}"
+        dest: "{{ dg_opensc2k_cache_dir }}/{{ dg_opensc2k_archive_name }}"
+        checksum: "sha256:{{ dg_opensc2k_archive_sha256 }}"
+        mode: "0644"
+
+    - name: Extract OpenSC2K release
+      ansible.builtin.unarchive:
+        src: "{{ dg_opensc2k_cache_dir }}/{{ dg_opensc2k_archive_name }}"
+        dest: "{{ dg_opensc2k_root }}"
+        remote_src: true
+        creates: "{{ dg_opensc2k_install_dir }}/OpenSC2K.x86_64"
+
+    - name: Make the OpenSC2K binary executable
+      ansible.builtin.file:
+        path: "{{ dg_opensc2k_install_dir }}/OpenSC2K.x86_64"
+        mode: "0755"
+
+    - name: Verify the original SimCity 2000 archive
+      ansible.builtin.stat:
+        path: "{{ dg_opensc2k_original_archive }}"
+        checksum_algorithm: sha256
+      register: _opensc2k_original_archive
+      failed_when: >-
+        not _opensc2k_original_archive.stat.exists or
+        _opensc2k_original_archive.stat.checksum != dg_opensc2k_original_archive_sha256
+
+    - name: Install archive extraction tools in the box
+      ansible.builtin.shell: >-
+        {{ dg_in_box }} sudo pacman -S --needed --noconfirm 7zip innoextract
+      register: _opensc2k_packages
+      changed_when: "'installing' in _opensc2k_packages.stdout or 'upgrading' in _opensc2k_packages.stdout"
+
+    - name: Create SimCity 2000 extraction directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_opensc2k_source_stage }}"
+        - "{{ dg_opensc2k_original_root | dirname }}"
+
+    - name: Extract the SimCity 2000 installer from RAR
+      ansible.builtin.command:
+        argv:
+          - distrobox-enter
+          - -n
+          - "{{ dg_box_name }}"
+          - --
+          - 7z
+          - x
+          - -y
+          - "-o{{ dg_opensc2k_source_stage }}"
+          - "{{ dg_opensc2k_original_archive }}"
+        creates: "{{ dg_opensc2k_source_setup }}"
+
+    - name: Extract the Windows 95 game files without running the installer
+      ansible.builtin.command:
+        argv:
+          - distrobox-enter
+          - -n
+          - "{{ dg_box_name }}"
+          - --
+          - innoextract
+          - -s
+          - -d
+          - "{{ dg_opensc2k_original_root | dirname }}"
+          - "{{ dg_opensc2k_source_setup }}"
+        creates: "{{ dg_opensc2k_original_exe }}"
+
+    - name: Verify the extracted SIMCITY.EXE
+      ansible.builtin.stat:
+        path: "{{ dg_opensc2k_original_exe }}"
+        checksum_algorithm: sha256
+      register: _opensc2k_original_exe
+      failed_when: >-
+        not _opensc2k_original_exe.stat.exists or
+        _opensc2k_original_exe.stat.checksum != dg_opensc2k_original_exe_sha256
+
+    - name: Download the matching Godot editor for asset import
+      ansible.builtin.get_url:
+        url: "{{ dg_opensc2k_godot_url }}"
+        dest: "{{ dg_opensc2k_cache_dir }}/{{ dg_opensc2k_godot_archive }}"
+        checksum: "sha256:{{ dg_opensc2k_godot_sha256 }}"
+        mode: "0644"
+
+    - name: Create Godot editor staging directory
+      ansible.builtin.file:
+        path: "{{ dg_opensc2k_godot_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Extract the Godot editor
+      ansible.builtin.unarchive:
+        src: "{{ dg_opensc2k_cache_dir }}/{{ dg_opensc2k_godot_archive }}"
+        dest: "{{ dg_opensc2k_godot_dir }}"
+        remote_src: true
+        creates: "{{ dg_opensc2k_godot_bin }}"
+
+    - name: Make the Godot editor executable
+      ansible.builtin.file:
+        path: "{{ dg_opensc2k_godot_bin }}"
+        mode: "0755"
+
+    - name: Create native library locations for headless import
+      ansible.builtin.file:
+        path: "{{ dg_opensc2k_godot_pack_root }}/bin/opensc2k_{{ item }}/linux-x86_64"
+        state: directory
+        mode: "0755"
+      loop: [audio, formats, rendering, scripting, simulation]
+
+    - name: Link release libraries into the import runtime
+      ansible.builtin.file:
+        src: "{{ dg_opensc2k_install_dir }}/libopensc2k_{{ item }}.so"
+        dest: "{{ dg_opensc2k_godot_pack_root }}/bin/opensc2k_{{ item }}/linux-x86_64/libopensc2k_{{ item }}.so"
+        state: link
+      loop: [audio, formats, rendering, scripting, simulation]
+
+    - name: Render the original asset import script
+      ansible.builtin.template:
+        src: import-original.gd.j2
+        dest: "{{ dg_opensc2k_godot_dir }}/import-original.gd"
+        mode: "0644"
+
+    - name: Import and configure the original SimCity 2000 assets
+      ansible.builtin.command:
+        argv:
+          - distrobox-enter
+          - -n
+          - "{{ dg_box_name }}"
+          - --
+          - env
+          - "LD_LIBRARY_PATH={{ dg_opensc2k_install_dir }}"
+          - "{{ dg_opensc2k_godot_bin }}"
+          - --headless
+          - --main-pack
+          - "{{ dg_opensc2k_install_dir }}/OpenSC2K.pck"
+          - --script
+          - "{{ dg_opensc2k_godot_dir }}/import-original.gd"
+        chdir: "{{ dg_opensc2k_godot_pack_root }}"
+      register: _opensc2k_import
+      changed_when: "'OPENSC2K_CHANGED=true' in _opensc2k_import.stdout"
+
+    - name: Deploy the OpenSC2K launcher
+      ansible.builtin.template:
+        src: opensc2k.sh.j2
+        dest: "{{ dg_opensc2k_launcher }}"
+        mode: "0755"
+
+    - name: Render the OpenSC2K desktop entry
+      ansible.builtin.template:
+        src: opensc2k.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-opensc2k.desktop"
+        mode: "0644"
+
+    - name: Install the desktop entry into host applications
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _opensc2k_host_launchers
+      changed_when: >-
+        'installed ' in _opensc2k_host_launchers.stdout or
+        'removed stale ' in _opensc2k_host_launchers.stdout

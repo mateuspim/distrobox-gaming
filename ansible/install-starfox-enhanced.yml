@@ -1,5 +1,5 @@
 ---
-- name: Install Star Fox Enhanced (SNES Star Fox source port, Wine)
+- name: Install Star Fox Enhanced (native SNES Star Fox source port)
   hosts: localhost
   connection: local
   gather_facts: true

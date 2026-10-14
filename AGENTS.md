@@ -7,7 +7,20 @@ live in `ansible/`, reusable roles in `ansible/roles/`, defaults in
 `ansible/group_vars/all/`, and machine-specific overrides in
 `ansible/host_vars/localhost.yml`. Rendered desktop entries live under
 `config/desktop/rendered/`; source templates live under role `templates/`.
-Focused setup notes are in `docs/`.
+Desktop entries carry ogm (omarchy-games-menu) discovery metadata as
+`X-OGM-*` keys: every `*.desktop.j2` imports the shared
+`ansible/templates/ogm-desktop-entry.j2` macro (`with context`) and calls it
+with its rendered stem, which emits the keys from `group_vars/all/ogm.yml`
+(`dg_ogm_games`) — add a new game there, never restate metadata in templates.
+Every new or updated game install MUST keep its `dg_ogm_games` entry current:
+`github` for GitHub-backed projects, otherwise `web_url`/`update_regex` for
+web-page update badges where a pollable page exists (see the field docs in
+`ogm.yml` and `docs/ogm-launcher.md`; verify regexes against the live page).
+The opt-in `ogm_catalog` role (tag `ogm`) renders the same data to a
+`catalog.d` fallback fragment. See `docs/ogm-launcher.md`.
+Focused setup notes are in `docs/`. The native macOS baseline is a separate
+stack under `macos/` and shares no code with the Linux tree — keep macOS
+changes there and Linux changes out of it.
 
 ## Build, Test, and Development Commands
 
@@ -18,6 +31,24 @@ ansible-playbook site.yml                  # full setup
 ansible-playbook --syntax-check site.yml   # validate playbook syntax
 ansible-playbook install-sonic-p06.yml     # run optional P-06 setup
 desktop-file-validate ../config/desktop/rendered/*.desktop
+../scripts/check-box-sonames.sh            # after box updates: sweep for soname-broken AUR binaries
+```
+
+**After every box package update** (`pacman -Syu` in the box), run
+`scripts/check-box-sonames.sh` and rebuild any AUR source packages it flags
+(`makepkg -srci` — `yay -S` only reinstalls the cached binary). Soname bumps
+(e.g. openexr 3.4 → 3.5 broke ES-DE + freeimage on 2026-09-28) leave AUR
+binaries linking the old library. The same sweep also audits the xenia-manager
+Wine prefix DPI (wine 11.18's DPI-awareness fix made Avalonia honor
+`LogPixels`; anything but 96 renders the UI oversized). See
+`docs/rebuild-runbook.md`.
+
+The macOS stack has its own checks, run from the repository root on a Mac:
+
+```sh
+bash -n macos/bootstrap.sh
+python3 macos/tests/verify.py       # real Ansible, temp dirs, installs nothing
+brew bundle check --file=macos/Brewfile
 ```
 
 Use focused playbooks for optional apps (`install-xenia.yml`,
@@ -66,6 +97,23 @@ quote paths because ROM names often contain spaces.
 Before committing Ansible changes, run syntax checks for touched playbooks and
 validate rendered `.desktop` files. For idempotent roles, rerun the playbook and
 confirm the second run reports no unexpected changes.
+
+## Temporary Resources & Cleanup
+
+Track temporary files, extraction directories, test profiles, source checkouts,
+and Docker resources created while working. After verification, remove scratch
+resources that the playbook, a future rebuild, or the user will not use. Check
+the exact path and its contents before removal; never clean by a broad glob.
+When adding an installer, keep large downloads or extracted copies only if the
+role uses them on later runs or they are needed to reproduce the install.
+
+This host runs containers and build jobs for other projects. Inspect Docker
+containers, images, volumes, and build cache before cleanup, and remove only
+resources known to have been created for this task and no longer in use. Never
+run blanket `docker system prune`, `docker volume prune`, or remove the
+`gaming` distrobox as routine cleanup. Preserve game sources, installed files,
+saves, active containers, and shared caches. Report what was removed and what
+was retained when storage use is material.
 
 ## Commit & Pull Request Guidelines
 

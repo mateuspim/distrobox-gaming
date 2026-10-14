@@ -1,0 +1,82 @@
+---
+# Spider-Man Remastered + Miles Morales mods via Overstrike CLI (headless).
+# See group_vars/all/spiderman_mods.yml and docs/nexusmods.md.
+# Run with Steam STOPPED (the role patches the games' asset_archive/toc).
+
+- name: Revert Spider-Man mods when requested
+  when: dg_smmods_revert | bool
+  block:
+    - name: Uninstall mods from each game (restores the original toc)
+      ansible.builtin.shell: |
+        set -eu
+        work="{{ dg_smmods_work_root }}/{{ item.id }}"
+        [ -f "$work/Profiles/{{ item.profile }}.json" ] || exit 0
+        cd "$work"
+        env -u DOTNET_ROOT -u DOTNET_ROOT_X86 -u DOTNET_CLI_HOME \
+          STEAM_COMPAT_DATA_PATH="{{ dg_smmods_steamapps }}/compatdata/{{ item.appid }}" \
+          STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_smmods_compat_client_install }}" \
+          timeout 280 "{{ dg_smmods_proton }}" runinprefix ./Overstrike.exe uninstall-mods {{ item.profile }} || true
+        rm -f "$work/.dg-mods-installed"
+        echo uninstalled-{{ item.id }}
+      loop: "{{ dg_smmods_games }}"
+      loop_control:
+        label: "{{ item.id }}"
+      register: _smmods_uninstall
+      changed_when: "'uninstalled-' in _smmods_uninstall.stdout"
+
+    - name: Remove the Overstrike working dirs
+      ansible.builtin.file:
+        path: "{{ dg_smmods_work_root }}"
+        state: absent
+
+    - name: Report reverted
+      ansible.builtin.debug:
+        msg: "Spider-Man mods uninstalled (toc restored from toc.BAK) and Overstrike working dirs removed. NAS archives untouched."
+
+- name: Install Spider-Man mods
+  when: not (dg_smmods_revert | bool)
+  block:
+    - name: Download the pinned Overstrike release to the NAS
+      ansible.builtin.get_url:
+        url: "{{ dg_smmods_overstrike_url }}"
+        dest: "{{ dg_smmods_overstrike_zip }}"
+        checksum: "sha256:{{ dg_smmods_overstrike_sha256 }}"
+        mode: "0644"
+
+    - name: Verify every mod archive exists on the NAS
+      ansible.builtin.shell: |
+        set -eu
+        {% for game in dg_smmods_games %}
+        {% for mod in game.mods | map(attribute='archive') | unique %}
+        [ -f "{{ dg_smmods_nexus_root }}/{{ game.mods_src }}/{{ mod }}" ] || { echo "MISSING: {{ game.mods_src }}/{{ mod }}"; exit 1; }
+        {% endfor %}
+        {% endfor %}
+        echo archives-ok
+      register: _smmods_archives
+      changed_when: false
+      failed_when: "'archives-ok' not in _smmods_archives.stdout"
+
+    - name: Warn if Steam is running (mods patch game files — run with Steam stopped)
+      ansible.builtin.shell: pgrep -x steam >/dev/null 2>&1 && echo steam-running || echo steam-stopped
+      register: _smmods_steam
+      changed_when: false
+
+    - name: Pause when Steam is running
+      ansible.builtin.debug:
+        msg: "WARNING: a steam process is running. Overstrike patches the games' asset_archive/toc — quit Steam before applying."
+      when: "'steam-running' in _smmods_steam.stdout"
+
+    - name: Set up each game
+      ansible.builtin.include_tasks: game.yml
+      loop: "{{ dg_smmods_games }}"
+      loop_control:
+        label: "{{ _smmods_game.id }}"
+        loop_var: _smmods_game
+
+    - name: Report
+      ansible.builtin.debug:
+        msg:
+          - "Overstrike {{ dg_smmods_overstrike_version }} mods installed for: {{ dg_smmods_games | map(attribute='id') | join(', ') }}."
+          - "Working dirs under {{ dg_smmods_work_root }}/<id> (Profiles + Mods Library); staging under _staging/."
+          - "Overstrike wrote asset_archive/mods/mod* + toc.BAK in each game dir; the game runs through Steam as usual."
+          - "Revert: ansible-playbook install-spiderman-mods.yml -e dg_smmods_revert=true"

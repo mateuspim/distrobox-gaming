@@ -1,0 +1,109 @@
+---
+# Conker's Bad Fur Day: Recompiled — prebuilt native Linux RT64 build on the RTX.
+# See group_vars/all/cbfd_recomp.yml and docs/cbfd-recomp.md.
+
+- name: Revert CBFD recomp when requested
+  when: dg_cbfd_revert | bool
+  block:
+    - name: Remove the launcher + install dir
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_cbfd_launcher }}"
+        - "{{ dg_cbfd_install_dir }}"
+    - name: Report reverted
+      ansible.builtin.debug:
+        msg: "CBFD recomp removed. The NAS tarball + z64 ROM are kept."
+
+- name: Install CBFD recomp
+  when: not (dg_cbfd_revert | bool)
+  block:
+    - name: Verify the Conker's Bad Fur Day (USA) ROM zip exists
+      ansible.builtin.stat:
+        path: "{{ dg_cbfd_rom_zip }}"
+      register: _cbfd_rom
+      failed_when: not _cbfd_rom.stat.exists
+
+    - name: Install runtime packages
+      ansible.builtin.shell: >-
+        {{ dg_in_box }} sudo pacman -S --needed --noconfirm {{ dg_cbfd_packages | join(' ') }}
+      register: _cbfd_pac
+      changed_when: "'installing' in _cbfd_pac.stdout or 'upgrading' in _cbfd_pac.stdout"
+
+    - name: Ensure the NAS release dir exists
+      ansible.builtin.file:
+        path: "{{ dg_cbfd_root }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download the prebuilt Linux build (hash-pinned)
+      ansible.builtin.get_url:
+        url: "{{ dg_cbfd_tarball_url }}"
+        dest: "{{ dg_cbfd_tarball }}"
+        checksum: "sha256:{{ dg_cbfd_tarball_sha256 }}"
+        mode: "0644"
+
+    - name: Extract the build (once)
+      ansible.builtin.shell: |
+        set -eu
+        inst="{{ dg_cbfd_install_dir }}"
+        [ -f "$inst/{{ dg_cbfd_exe }}" ] && exit 0
+        mkdir -p "$inst"
+        tar -xzf "{{ dg_cbfd_tarball }}" -C "$inst" --strip-components=1
+        echo cbfd-extracted
+      register: _cbfd_extract
+      changed_when: "'cbfd-extracted' in _cbfd_extract.stdout"
+
+    - name: Unzip + normalize the ROM to a big-endian z64 + verify sha1 (creates once)
+      ansible.builtin.shell: |
+        python3 - <<'PY'
+        import hashlib, zipfile
+        src = "{{ dg_cbfd_rom_zip }}"; dst = "{{ dg_cbfd_rom_z64 }}"
+        zf = zipfile.ZipFile(src)
+        names = [n for n in zf.namelist() if n.lower().endswith(('.z64', '.v64', '.n64'))]
+        if len(names) != 1: raise SystemExit("expected exactly one ROM in zip, got: %s" % names)
+        d = zf.read(names[0]); m = d[:4]
+        if m == b'\x80\x37\x12\x40': z = d
+        elif m == b'\x37\x80\x40\x12':
+            b = bytearray(d); b[0::2], b[1::2] = d[1::2], d[0::2]; z = bytes(b)
+        elif m == b'\x40\x12\x37\x80':
+            b = bytearray(len(d))
+            for i in range(0, len(d) & ~3, 4): b[i:i+4] = d[i:i+4][::-1]
+            z = bytes(b)
+        else: raise SystemExit("unknown ROM byte order: " + m.hex())
+        # sanity: 64 MiB CBFD
+        if len(z) != 64 * 1024 * 1024: raise SystemExit("unexpected ROM size: %d" % len(z))
+        h = hashlib.sha1(z).hexdigest()
+        if h != "{{ dg_cbfd_rom_sha1 }}": raise SystemExit("ROM sha1 mismatch: got " + h)
+        open(dst, 'wb').write(z); print("z64 ok (sha1 %s)" % h)
+        PY
+      args:
+        creates: "{{ dg_cbfd_rom_z64 }}"
+
+    - name: Deploy the launcher
+      ansible.builtin.template:
+        src: cbfd-launch.sh.j2
+        dest: "{{ dg_cbfd_launcher }}"
+        mode: "0755"
+
+    - name: Render + install the desktop entry
+      ansible.builtin.template:
+        src: cbfd.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-cbfd-recomp.desktop"
+        mode: "0644"
+
+    - name: Install the desktop entry into the host applications dir
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _cbfd_host
+      changed_when: "'installed ' in _cbfd_host.stdout or 'removed stale ' in _cbfd_host.stdout"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg:
+          - "Conker's Bad Fur Day: Recompiled {{ dg_cbfd_version }} at {{ dg_cbfd_install_dir }}; launcher {{ dg_cbfd_launcher }} (Walker: Conker's Bad Fur Day · Recompiled)."
+          - "Native Linux RT64 build on Vulkan/RTX (VK_ICD pinned nvidia). US ROM verified by sha1. First launch imports the ROM into the frontend (then Start Game). Revert: -e dg_cbfd_revert=true."

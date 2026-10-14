@@ -62,23 +62,75 @@
     - item.stat is defined
     - not (item.stat.exists | default(false))
 
-- name: "Copy per-game DuckStation cheat files"
+# Copy + enable in one pass: the enable IDs are flipped in the deployed
+# content itself (regex over the slurped source), so the written file is
+# a fixed point — a plain copy followed by in-place replace re-flagged
+# "changed" on every run.
+- name: "Copy per-game DuckStation cheat files (enables pre-applied)"
   ansible.builtin.copy:
-    src: "{{ item.item.source }}"
     dest: "{{ dg_box_home }}/.config/duckstation/cheats/{{ item.item.serial }}.cht"
-    remote_src: true
+    content: "{{ lookup('ansible.builtin.file', item.item.source) | regex_replace(_ds_enable_re, '\\g<1> = true') }}"
     mode: "0644"
+  vars:
+    _ds_enable_re: "(?m)^(cheat(?:{{ item.item.enable_ids | default([]) | map('string') | join('|') }})_enable)\\s*=\\s*false"
   loop: "{{ _duckstation_cheat_sources.results | default([]) }}"
   loop_control:
     label: "{{ item.item.serial }}"
-  when: item.stat.exists | default(false)
+  when:
+    - item.stat.exists | default(false)
+    - item.item.enable_ids | default([]) | length > 0
 
-- name: "Enable the requested cheat IDs in each deployed cheat file"
-  ansible.builtin.replace:
-    path: "{{ dg_box_home }}/.config/duckstation/cheats/{{ item.0.serial }}.cht"
-    regexp: "^(cheat{{ item.1 }}_enable)\\s*=\\s*false"
-    replace: "\\1 = true"
-  loop: "{{ dg_duckstation_cheats | default([]) | subelements('enable_ids') }}"
+# Inline native-format cheat files (tag + content entries). Deployed as
+# cheats/<serial>_<tag>.cht — the loader glob-matches <serial>*.cht, so
+# these load alongside any <serial>.cht pack.
+- name: "Deploy inline DuckStation-native cheat files"
+  ansible.builtin.copy:
+    dest: "{{ dg_box_home }}/.config/duckstation/cheats/{{ item.serial }}_{{ item.tag }}.cht"
+    content: "{{ item.content }}"
+    mode: "0644"
+  loop: "{{ dg_duckstation_cheats | default([]) }}"
   loop_control:
-    label: "{{ item.0.serial }} cheat{{ item.1 }}"
-  failed_when: false   # if file missing (source wasn't there), silently skip
+    label: "{{ item.serial }}_{{ item.tag | default('') }}.cht"
+  when: item.content is defined and item.tag is defined
+
+# Cheat activation on current DuckStation lives in the per-game ini:
+#   [Cheats]
+#   EnableCheats = true
+#   Enable = <cheat name>     (repeated key, one per cheat)
+# ini_file can't write repeated keys, so Enable lines use lineinfile.
+- name: "DuckStation per-game cheat master switch"
+  community.general.ini_file:
+    path: "{{ dg_box_home }}/.config/duckstation/gamesettings/{{ item.serial }}.ini"
+    section: Cheats
+    option: EnableCheats
+    value: "true"
+    create: true
+    backup: true
+    mode: "0644"
+  loop: "{{ dg_duckstation_cheats | default([]) }}"
+  loop_control:
+    label: "{{ item.serial }} [Cheats] EnableCheats"
+  when: item.enable_names is defined
+
+- name: "Ensure DuckStation gamesettings [Cheats] section exists"
+  ansible.builtin.lineinfile:
+    path: "{{ dg_box_home }}/.config/duckstation/gamesettings/{{ item.serial }}.ini"
+    line: "[Cheats]"
+    insertafter: EOF
+    create: true
+    backup: true
+    mode: "0644"
+  loop: "{{ dg_duckstation_cheats | default([]) }}"
+  loop_control:
+    label: "{{ item.serial }} [Cheats] section"
+  when: item.enable_names is defined
+
+- name: "Enable named DuckStation cheats in per-game ini"
+  ansible.builtin.lineinfile:
+    path: "{{ dg_box_home }}/.config/duckstation/gamesettings/{{ item.0.serial }}.ini"
+    regexp: "^Enable = {{ item.1 | regex_escape }}$"
+    line: "Enable = {{ item.1 }}"
+    insertafter: "^\\[Cheats\\]$"
+  loop: "{{ dg_duckstation_cheats | default([]) | subelements('enable_names', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.serial }} Enable={{ item.1 }}"

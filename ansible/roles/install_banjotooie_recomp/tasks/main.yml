@@ -1,0 +1,181 @@
+---
+# Banjo-Tooie Recompiled — Windows x64 alpha under Wine (no Linux build).
+# See group_vars/all/banjotooie_recomp.yml and docs/banjotooie-recomp.md.
+
+- name: Revert Banjo-Tooie Recompiled when requested
+  when: dg_btooie_revert | bool
+  block:
+    - name: Remove the launcher, install dir and prefix
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_btooie_launcher }}"
+        - "{{ dg_btooie_install_dir }}"
+        - "{{ dg_btooie_prefix }}"
+    - name: Report reverted
+      ansible.builtin.debug:
+        msg: "Banjo-Tooie Recompiled removed. The NAS zip + z64 and the profile ({{ dg_btooie_profile_dir }}) are untouched."
+
+- name: Install Banjo-Tooie Recompiled
+  when: not (dg_btooie_revert | bool)
+  block:
+    - name: Verify the Banjo-Tooie (USA) ROM zip exists
+      ansible.builtin.stat:
+        path: "{{ dg_btooie_rom_zip }}"
+      register: _btooie_rom_zip
+      failed_when: not _btooie_rom_zip.stat.exists
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_btooie_root }}"
+        - "{{ dg_btooie_install_dir }}"
+        - "{{ dg_btooie_profile_dir }}"
+        - "{{ dg_box_home }}/bin"
+
+    - name: Download the pinned Windows build to the NAS
+      ansible.builtin.get_url:
+        url: "{{ dg_btooie_zip_url }}"
+        dest: "{{ dg_btooie_zip }}"
+        checksum: "sha256:{{ dg_btooie_zip_sha256 }}"
+        mode: "0644"
+
+    - name: Extract the build (once)
+      ansible.builtin.shell: |
+        set -eu
+        [ -f "{{ dg_btooie_install_dir }}/{{ dg_btooie_exe }}" ] && exit 0
+        unzip -oq "{{ dg_btooie_zip }}" -d "{{ dg_btooie_install_dir }}"
+        echo extracted-banjotooie
+      register: _btooie_extract
+      changed_when: "'extracted-banjotooie' in _btooie_extract.stdout"
+
+    - name: Unzip + normalize the ROM to a big-endian z64 + verify sha256 (creates once)
+      ansible.builtin.shell: |
+        python3 - <<'PY'
+        import hashlib, zipfile
+        src = "{{ dg_btooie_rom_zip }}"; dst = "{{ dg_btooie_rom_z64 }}"
+        zf = zipfile.ZipFile(src)
+        names = [n for n in zf.namelist() if n.lower().endswith(('.z64', '.v64', '.n64'))]
+        if len(names) != 1: raise SystemExit("expected exactly one ROM in zip, got: %s" % names)
+        d = zf.read(names[0]); m = d[:4]
+        if m == b'\x80\x37\x12\x40': z = d
+        elif m == b'\x37\x80\x40\x12':
+            b = bytearray(d); b[0::2], b[1::2] = d[1::2], d[0::2]; z = bytes(b)
+        elif m == b'\x40\x12\x37\x80':
+            b = bytearray(len(d))
+            for i in range(0, len(d) & ~3, 4): b[i:i+4] = d[i:i+4][::-1]
+            z = bytes(b)
+        else: raise SystemExit("unknown ROM byte order: " + m.hex())
+        # sanity: 32 MiB Tooie
+        if len(z) != 32 * 1024 * 1024: raise SystemExit("unexpected ROM size: %d" % len(z))
+        h = hashlib.sha256(z).hexdigest()
+        if h != "{{ dg_btooie_rom_sha256 }}": raise SystemExit("ROM sha256 mismatch: got " + h)
+        open(dst, 'wb').write(z); print("z64 ok (sha256 %s)" % h)
+        PY
+      args:
+        creates: "{{ dg_btooie_rom_z64 }}"
+
+    - name: Copy the verified z64 next to the exe (ROM-picker convenience)
+      ansible.builtin.copy:
+        src: "{{ dg_btooie_rom_z64 }}"
+        dest: "{{ dg_btooie_install_dir }}/Banjo-Tooie (USA).z64"
+        remote_src: true
+        mode: "0644"
+
+    - name: Seed the launcher graphics config (once) — borderless 4K + 16:9
+      ansible.builtin.shell: |
+        set -eu
+        cfg="{{ dg_btooie_profile_dir }}/config/tooie_imgui.json"
+        [ -f "$cfg" ] && exit 0
+        mkdir -p "$(dirname "$cfg")"
+        # Int enums from upstream src/frontend_config.cpp migrate tables:
+        # output_mode 1 = Borderless desktop, output_resolution 5 = 3840x2160,
+        # game_widescreen 1 = On (16:9). Unknown keys are preserved on flush.
+        cat > "$cfg" <<'JSON'
+        {
+          "tooie_output_mode": 1,
+          "tooie_output_display": 0,
+          "tooie_output_resolution": 5,
+          "tooie_game_widescreen": 1
+        }
+        JSON
+        echo config-seeded
+      register: _btooie_cfgseed
+      changed_when: "'config-seeded' in _btooie_cfgseed.stdout"
+
+    - name: Initialize the Wine prefix
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          set -eu
+          [ -d "{{ dg_btooie_prefix }}/drive_c" ] && exit 0
+          export WINEPREFIX="{{ dg_btooie_prefix }}"
+          "{{ dg_btooie_wine_bin_dir }}/wineboot" -i >/dev/null 2>&1 || true
+          "{{ dg_btooie_wine_bin_dir }}/wineserver" -w || true
+          echo prefix-created
+        '
+      register: _btooie_prefix
+      changed_when: "'prefix-created' in _btooie_prefix.stdout"
+
+    - name: Force the GLX OpenGL backend (wine 11 EGL -> iGPU regression)
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          export WINEPREFIX="{{ dg_btooie_prefix }}"
+          W="{{ dg_btooie_wine_bin_dir }}"
+          "$W/wine" reg query "HKCU\\Software\\Wine\\X11 Driver" /v UseEGL 2>/dev/null | grep -q N && exit 0
+          "$W/wine" reg add "HKCU\\Software\\Wine\\X11 Driver" /v UseEGL /d N /f >/dev/null
+          "$W/wineserver" -w || true
+          echo egl-pinned
+        '
+      register: _btooie_egl
+      changed_when: "'egl-pinned' in _btooie_egl.stdout"
+
+    - name: Route controllers through SDL (winebus) so the 8BitDo reaches the game
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          export WINEPREFIX="{{ dg_btooie_prefix }}"
+          W="{{ dg_btooie_wine_bin_dir }}"
+          "$W/wine" reg add "HKCU\\Software\\Wine\\WineBus" /v "{{ item.name }}" /t REG_DWORD /d {{ item.value }} /f >/dev/null
+          "$W/wineserver" -w || true
+        '
+      loop: "{{ dg_btooie_winebus_registry }}"
+      loop_control:
+        label: "{{ item.name }}={{ item.value }}"
+      changed_when: true
+
+    - name: Deploy the launcher
+      ansible.builtin.template:
+        src: banjotooie-recomp.sh.j2
+        dest: "{{ dg_btooie_launcher }}"
+        mode: "0755"
+
+    - name: Render the desktop entry
+      ansible.builtin.template:
+        src: gaming-banjotooie-recomp.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-banjotooie-recomp.desktop"
+        mode: "0644"
+
+    - name: Install the desktop entry into the host applications dir
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _btooie_host_launchers
+      changed_when: >-
+        'installed ' in _btooie_host_launchers.stdout or
+        'removed stale ' in _btooie_host_launchers.stdout
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          Banjo-Tooie Recompiled {{ dg_btooie_version }} under Wine at
+          {{ dg_btooie_install_dir }}; launcher {{ dg_btooie_launcher }}
+          (fullscreen via gamescope). NTSC-U 1.0 ROM verified by sha256 at
+          {{ dg_btooie_rom_z64 }} (copy next to the exe). First launch:
+          Play -> Choose ROM... once; the launcher then keeps a validated copy
+          in the profile ({{ dg_btooie_profile_dir }}).
+          Revert: -e dg_btooie_revert=true.

@@ -20,6 +20,16 @@ Recomp, PrBoom-Plus Doom II RT), Windows/Wine games (Colin McRae Rally, OutRun
 and reproducible **NexusMods mod-set** roles per game. See `docs/nexusmods.md`,
 `docs/external-installers.md`, and `docs/rebuild-runbook.md`.
 
+## macOS
+
+`macos/` is a separate, native macOS baseline — ES-DE plus Dolphin, PCSX2 and
+PPSSPP over Homebrew, with its own small Ansible playbook. It shares no code
+with the Linux tree: no Distrobox, no Wine/Proton, no `.so` cores. Windows
+software is permanently out of its scope. See [macos/README.md](macos/README.md)
+and [macos/INSTALL.md](macos/INSTALL.md).
+
+Everything else in this file describes the Linux distrobox.
+
 ## Quick Start
 
 ### Omarchy/Odin core profile
@@ -104,6 +114,7 @@ ansible-playbook site.yml --tags pcsx2_textures  # PCSX2 HD texture packs + per-
 ansible-playbook site.yml --tags pc_racing       # prepare tested Windows PC racing games via Wine
 ansible-playbook site.yml --tags sonic_p06       # install Sonic Project '06 via system Wine
 ansible-playbook site.yml --tags unleashed_recomp # install native Unleashed Recompiled Flatpak
+ansible-playbook site.yml --tags ogm             # render the ogm (omarchy-games-menu) catalog fragment
 ```
 
 ## Path Configuration
@@ -203,9 +214,12 @@ dg_host_gid: 1000
 - Arch-based distrobox named `gaming` with `--nvidia` drivers bind-mounted
 - Pacman and AUR emulator packages (see `group_vars/all/packages.yml`)
 - ES-DE (emulationstation-de) as the frontend
-- RetroArch plus 21 buildbot cores (fbneo, mednafen variants, etc.) and
+- RetroArch plus 25 buildbot cores (fbneo, mednafen variants, etc.) and
   all 8 asset packs (info, assets, autoconfig, cheats, databases, shaders,
   overlays) — ~760 MB total
+- Atari 2600, 5200, 7800 and Lynx as **opt-in** ES-DE systems
+  (`dg_atari_enabled`, off by default) on cores the list already carried
+  (`docs/atari.md`)
 - Minimal zsh + starship prompt inside the box
 
 ### Per-emulator
@@ -452,6 +466,7 @@ ansible/                            # Ansible playbooks and roles (primary)
     emulators.yml                   # per-emulator INI settings
     esde.yml                        # ES-DE system definitions
     launchers.yml                   # rendered host desktop launcher definitions
+    ogm.yml                         # ogm (omarchy-games-menu) catalog metadata
     gpu.yml                         # NVIDIA preference config
     shadps4.yml                     # shadPS4 release / path config
     xenia.yml                       # Xenia Manager config
@@ -483,6 +498,7 @@ ansible/                            # Ansible playbooks and roles (primary)
     install_pc_racing/              # Wine wrappers for tested Windows racing games
     install_sonic_p06/              # Wine wrapper for Sonic Project '06
     install_unleashed_recomp/       # native Unleashed Recompiled Flatpak install
+    ogm_catalog/                    # host-side ogm (omarchy-games-menu) catalog fragment
 scripts/                            # helper scripts invoked by the Ansible roles
 config/                             # live config source trees (emulator INIs, ES-DE, desktop templates)
 docs/                               # historical notes and focused docs
@@ -492,8 +508,15 @@ docs/                               # historical notes and focused docs
 
 Core setup & rebuild:
 
+- **[Sources & downloads](docs/sources.md)** — upstream repos/pages for every native port, recomp, decomp, fan game and ROM-hack tool, if you want to grab a build yourself
+- **[Save backups](docs/save-backups.md)** — mirror emulator/PC-port saves to the NAS (`backup-saves`) and restore them on a fresh remount (`restore-saves`)
 - [Rebuild Runbook](docs/rebuild-runbook.md) — from-scratch rebuild, opt-in tags, standalone playbooks
 - [External Installers](docs/external-installers.md) — download inventory for the opt-in Windows/Wine games and tools
+- [ogm launcher integration](docs/ogm-launcher.md) — omarchy-games-menu catalog fragment, `ogm scan` hooks
+- [Unsupported / parked games](docs/unsupported-games.md) — games/mods we couldn't get working; the detailed trail lives in GitHub issues
+- [Forza database editing](docs/forza-database-editing.md) — edit FM4/FM2 car prices & economy in gamedb.slt; swap PFP career/easy (Sandbox) modes; revert
+- [Atari ST / Hatari](docs/atari-st.md) — focused installation, BIOS setup and mandatory validation
+
 - [Controller Hotkeys](docs/controller-hotkeys.md) · [Input Latency](docs/input-latency.md) · [Hyprland Gaming](docs/hyprland-gaming.md)
 - [Flycast Resolution](docs/flycast-resolution.md)
 

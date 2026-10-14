@@ -1,0 +1,31 @@
+---
+# Sonic Legends (Trial Version) — ULTRA RING's fan-made classic-Sonic game on
+# GameMaker Studio 2 (data.win, .vsh shaders). WINDOWS-only → wine-11.8 with
+# the established recipe (UseEGL=N GLX pin + WineBus SDL for the 8BitDo),
+# fullscreen via gamescope integer scaling (gamescope subsumes the
+# Wine-virtual-desktop corner-render fix).
+# Opt-in role install_sonic_legends. See docs/sonic-fan-pack.md.
+#
+# Source: the user's downloaded zip on the NAS (itch.io page
+# ultra-ring.itch.io/sonic-legends-trial-version — itch has no releases API;
+# ogm.yml fingerprints the page to badge new uploads). Files at zip root,
+# "Sonic Legends.exe" (name has a space — quote everywhere).
+
+dg_soniclegends_version: "trial-2023-11-24"
+dg_soniclegends_zip: "{{ dg_roms_final_root }}/PC/Sonic Legends.zip"
+
+dg_soniclegends_install_dir: "{{ dg_box_home }}/Games/sonic-legends"
+dg_soniclegends_exe: "Sonic Legends.exe"
+dg_soniclegends_bin: "{{ dg_box_home }}/bin/sonic-legends"
+dg_soniclegends_prefix: "{{ dg_box_home }}/wineprefixes/sonic-legends"
+dg_soniclegends_wine_bin_dir: "{{ dg_pc_racing_wine_runner_root }}/wine-11.8/usr/bin"
+dg_soniclegends_gamescope_args: "-W 3840 -H 2160 -S integer -f"
+
+dg_soniclegends_winebus_registry:
+  - { name: DisableHidraw, value: 1 }
+  - { name: DisableInput, value: 1 }
+  - { name: "Enable SDL", value: 1 }
+  - { name: "Map Controllers", value: 1 }
+
+dg_soniclegends_main_output: "DP-1"
+dg_soniclegends_revert: false

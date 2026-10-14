@@ -106,17 +106,51 @@ dg_pcsx2_patch_urls:
 
 # Append repo-local pnach block onto a deployed pnach. Use when upstream
 # has only widescreen/UI fixes but we want to ship rebalance cheats on
-# top (e.g. retail GT4 money cheats ported to Spec II's CRC). Each entry
-# is idempotent — re-running leaves one copy of the appended block.
-dg_pcsx2_patch_appends:
-  # GT4 Spec II: retail vanilla pnach's Max Cash variants ported as an
-  # experiment. Spec II kept Polyphony's runtime data layout (most of
-  # the Gameshark code blocks target a data address, not code), so the
-  # cheats MIGHT apply cleanly. Leave off by default — user enables via
-  # PCSX2 Game Properties → Patches → Enable Cheats per-game. Test each
-  # "Max Cash" variant one at a time; only one will typically be right.
-  - target_pnach: SCUS-97436_4CE521F2.pnach
-    local_file:   SCUS-97436_4CE521F2-gt4specii-cheats.pnach
+# top. Each entry is idempotent — re-running leaves one copy of the
+# appended block. Set `state: absent` to strip a previously appended block.
+dg_pcsx2_patch_appends: []
+# REMOVED 2026-09-29: the "GT4 Spec II ported Max Cash" experiment
+# (SCUS-97436_4CE521F2-gt4specii-cheats.pnach). Those vanilla-retail
+# codes target the wrong address under Spec II AND misuse GT4's XOR
+# credit encoding (the madcatz variant writes >4 quadrillion credits and
+# glitches saves). Replaced by a verified Spec II cheat in the cheats dir
+# — see dg_pcsx2_cheat_files below.
+dg_pcsx2_patch_appends_removed:
+  - { target_pnach: SCUS-97436_4CE521F2.pnach, local_file: SCUS-97436_4CE521F2-gt4specii-cheats.pnach }
+
+# Repo-local .pnach cheat files deployed into ~/.config/PCSX2/cheats/.
+# PCSX2 glob-loads <CRC>*.pnach and <SERIAL>_<CRC>*.pnach from cheats/,
+# so a suffix like -money is fine. Bracketed cheats still need enabling
+# (dg_pcsx2_cheat_enables below) plus EnableCheats in the game ini.
+dg_pcsx2_cheat_files:
+  # GT4 Spec II: pins credits at the 99,999,999 display cap. XOR-obfuscated
+  # credits variable at Spec II's 0x9C86A8 (NOT vanilla's 0xA1FCA8).
+  - { dest_name: SCUS-97436_4CE521F2-money.pnach, local_file: SCUS-97436_4CE521F2-money.pnach }
+
+# Named cheats to force-ON per game, written as repeated
+#   Enable = <exact bracket header text>
+# lines under [Cheats] in gamesettings/<SERIAL>_<CRC>.ini. The Enable
+# string list is the ONLY thing PCSX2 honors for bracketed cheats
+# (pcsx2/Patch.cpp EnablePatches); per-game layer shadows global.
+dg_pcsx2_cheat_enables:
+  # GT3 A-spec PS2 Bundle (PBPX-95503/8AA991B0 — our "(USA) (v1.10)" ISO
+  # actually boots as this serial/CRC; verified via emulog 2026-09-29).
+  # Cheat ships in the NAS-symlinked 8AA991B0.pnach. Continuous write of
+  # 999,999,999,999 Cr (GT3 clamps to its own cap at display time).
+  - serial: PBPX-95503
+    crc: 8AA991B0
+    names:
+      - 'Simulation Mode Codes\Max Money'
+  # GT3 USA retail serial, in case a retail dump ever replaces the ISO.
+  - serial: SCUS-97102
+    crc: 85AE91B3
+    names:
+      - 'Max Money'
+  # GT4 Spec II — cheat from dg_pcsx2_cheat_files above.
+  - serial: SCUS-97436
+    crc: 4CE521F2
+    names:
+      - 'Money\Max Credits (99,999,999)'
 
 # URL + explicit dest filename. Use when the upstream pnach targets a CRC
 # that differs from ours (same base game, different build) and we need to
@@ -192,6 +226,9 @@ dg_pcsx2_per_game_settings:
       # (CRC 32A1C752, same code layout) renamed to Spec II's CRC via
       # dg_pcsx2_patch_url_renames below — keep this true so PCSX2 loads it.
       - { section: "EmuCore", option: "EnableWideScreenPatches", value: "true" }
+      # Money cheat on by default (dg_pcsx2_cheat_enables + the repo-local
+      # SCUS-97436_4CE521F2-money.pnach in cheats/). Per-game master switch.
+      - { section: "EmuCore", option: "EnableCheats", value: "true" }
 
   - serial: SCUS-97102              # GT3 A-spec — USA retail
     crc: 85AE91B3
@@ -212,6 +249,11 @@ dg_pcsx2_per_game_settings:
       - { section: "EmuCore/GS", option: "PrecacheTextureReplacements", value: "false" }
       - { section: "EmuCore/GS", option: "TextureReplacementsAsync", value: "false" }
       - { section: "EmuCore", option: "EnableWideScreenPatches", value: "true" }
+      # Money cheat on by default (2026-09-29 user request). The cheat
+      # itself is named-enabled via dg_pcsx2_cheat_enables; this is just
+      # the per-game master switch. Scope: GT3 only, other games keep
+      # the global EnableCheats=false.
+      - { section: "EmuCore", option: "EnableCheats", value: "true" }
 
   - serial: PBPX-95503              # GT3 A-spec PS2 Bundle variant — same settings
     crc: 8AA991B0

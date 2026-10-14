@@ -1,0 +1,114 @@
+---
+# Sonic Dimensions — Clickteam Fusion exe under Wine (no Linux build).
+# See group_vars/all/sonic_dimensions.yml and docs/sonic-fan-pack.md.
+
+- name: Revert Sonic Dimensions when requested
+  when: dg_sonicdimensions_revert | bool
+  block:
+    - name: Remove the Sonic Dimensions launcher, install dir and prefix
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_sonicdimensions_bin }}"
+        - "{{ dg_sonicdimensions_install_dir }}"
+        - "{{ dg_sonicdimensions_prefix }}"
+    - name: Report Sonic Dimensions reverted
+      ansible.builtin.debug:
+        msg: "Sonic Dimensions removed. The NAS rar is untouched."
+
+- name: Install Sonic Dimensions
+  when: not (dg_sonicdimensions_revert | bool)
+  block:
+    - name: Verify the NAS rar exists
+      ansible.builtin.stat:
+        path: "{{ dg_sonicdimensions_rar }}"
+      register: _sonicdimensions_rar
+      failed_when: not _sonicdimensions_rar.stat.exists
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_sonicdimensions_install_dir }}"
+        - "{{ dg_box_home }}/bin"
+
+    - name: Extract the game (once)
+      ansible.builtin.shell: |
+        set -eu
+        [ -f "{{ dg_sonicdimensions_game_dir }}/{{ dg_sonicdimensions_exe }}" ] && exit 0
+        unrar x -o+ -idq "{{ dg_sonicdimensions_rar }}" "{{ dg_sonicdimensions_install_dir }}/"
+        echo extracted-sonicdimensions
+      register: _sonicdimensions_extract
+      changed_when: "'extracted-sonicdimensions' in _sonicdimensions_extract.stdout"
+
+    - name: Initialize the Wine prefix
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          set -eu
+          [ -d "{{ dg_sonicdimensions_prefix }}/drive_c" ] && exit 0
+          export WINEPREFIX="{{ dg_sonicdimensions_prefix }}"
+          "{{ dg_sonicdimensions_wine_bin_dir }}/wineboot" -i >/dev/null 2>&1 || true
+          "{{ dg_sonicdimensions_wine_bin_dir }}/wineserver" -w || true
+          echo prefix-created
+        '
+      register: _sonicdimensions_prefix
+      changed_when: "'prefix-created' in _sonicdimensions_prefix.stdout"
+
+    - name: Force the GLX OpenGL backend (wine 11 EGL -> iGPU regression)
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          export WINEPREFIX="{{ dg_sonicdimensions_prefix }}"
+          W="{{ dg_sonicdimensions_wine_bin_dir }}"
+          "$W/wine" reg query "HKCU\\Software\\Wine\\X11 Driver" /v UseEGL 2>/dev/null | grep -q N && exit 0
+          "$W/wine" reg add "HKCU\\Software\\Wine\\X11 Driver" /v UseEGL /d N /f >/dev/null
+          "$W/wineserver" -w || true
+          echo egl-pinned
+        '
+      register: _sonicdimensions_egl
+      changed_when: "'egl-pinned' in _sonicdimensions_egl.stdout"
+
+    - name: Route controllers through SDL (winebus) so the 8BitDo reaches the game
+      ansible.builtin.shell: |
+        {{ dg_in_box }} bash -c '
+          export WINEPREFIX="{{ dg_sonicdimensions_prefix }}"
+          W="{{ dg_sonicdimensions_wine_bin_dir }}"
+          "$W/wine" reg add "HKCU\\Software\\Wine\\WineBus" /v "{{ item.name }}" /t REG_DWORD /d {{ item.value }} /f >/dev/null
+          "$W/wineserver" -w || true
+        '
+      loop: "{{ dg_sonicdimensions_winebus_registry }}"
+      loop_control:
+        label: "{{ item.name }}={{ item.value }}"
+      changed_when: true
+
+    - name: Deploy the launcher
+      ansible.builtin.template:
+        src: sonic-dimensions.sh.j2
+        dest: "{{ dg_sonicdimensions_bin }}"
+        mode: "0755"
+
+    - name: Render the desktop entry
+      ansible.builtin.template:
+        src: gaming-sonic-dimensions.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-sonic-dimensions.desktop"
+        mode: "0644"
+
+    - name: Install the desktop entry into the host applications dir
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _sonicdimensions_host_launchers
+      changed_when: >-
+        'installed ' in _sonicdimensions_host_launchers.stdout or
+        'removed stale ' in _sonicdimensions_host_launchers.stdout
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          Sonic Dimensions {{ dg_sonicdimensions_version }} under Wine at
+          {{ dg_sonicdimensions_install_dir }}; launcher {{ dg_sonicdimensions_bin }}
+          (fullscreen via gamescope). Revert: -e dg_sonicdimensions_revert=true.

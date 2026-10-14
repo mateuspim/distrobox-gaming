@@ -1,0 +1,31 @@
+---
+# Conker's Bad Fur Day: Recompiled (sciaschi/CBFD-Recompiled) — an
+# N64Recomp + N64ModernRuntime + RT64 static recomp PC port of Conker's Bad
+# Fur Day (US). Opt-in role install_cbfd_recomp. See docs/cbfd-recomp.md.
+#
+# Upstream ships a native Linux x86-64 build (RT64 renders through Vulkan
+# directly), so no Wine — we hash-pin the release tarball on the NAS and run
+# it natively on the RTX.
+
+dg_cbfd_version: "0.1.4"
+dg_cbfd_tarball_url: "https://github.com/sciaschi/CBFD-Recompiled/releases/download/V{{ dg_cbfd_version }}/ConkerRecompiled-V{{ dg_cbfd_version }}-Linux.tar.gz"
+dg_cbfd_tarball_sha256: "ec1437a3cf3488c53891c36239c247c8aacb19568512a7b306a28a681c86e4e6"
+
+dg_cbfd_root: "{{ dg_roms_final_root }}/PC/cbfd-recomp"
+dg_cbfd_tarball: "{{ dg_cbfd_root }}/ConkerRecompiled-V{{ dg_cbfd_version }}-Linux.tar.gz"
+dg_cbfd_install_dir: "{{ dg_box_home }}/tools/cbfd-recomp"
+dg_cbfd_exe: ConkerRecomp
+
+# ROM: Conker's Bad Fur Day (USA) ONLY (z64 sha1
+# 4cbadd3c4e0729dec46af64ad018050eada4f47a). The NAS dump is zipped and named
+# .v64 but is already big-endian; the role still normalizes the byte order and
+# verifies the sha1 before installing the .z64 next to the tarball.
+dg_cbfd_rom_zip: "{{ dg_roms_final_root }}/n64/Conker's Bad Fur Day (USA).zip"
+dg_cbfd_rom_z64: "{{ dg_cbfd_root }}/Conker's Bad Fur Day (USA).z64"
+dg_cbfd_rom_sha1: "4cbadd3c4e0729dec46af64ad018050eada4f47a"
+
+dg_cbfd_launcher: "{{ dg_box_home }}/bin/cbfd-recomp"
+dg_cbfd_nvidia_icd: /usr/share/vulkan/icd.d/nvidia_icd.json
+# Arch runtime deps (from ldd on ConkerRecomp).
+dg_cbfd_packages: [sdl2, vulkan-icd-loader, freetype2, dbus]
+dg_cbfd_revert: false

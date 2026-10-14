@@ -1,0 +1,129 @@
+---
+# MGSV: TPP mods via mgsv-mod-installer's snakebite_lib (headless).
+# See group_vars/all/mgsvtpp_mods.yml and docs/nexusmods.md.
+# Run with the game (and Steam) stopped — the tool rewrites master/*.dat.
+
+- name: Revert MGSV mods when requested
+  when: dg_mgsvmods_revert | bool
+  block:
+    - name: Restore the original game files via the tool's lib
+      ansible.builtin.shell: |
+        set -eu
+        [ -d "{{ dg_mgsvmods_tool_dir }}" ] || exit 0
+        python3 - <<'PY'
+        import sys
+        sys.path.insert(0, "{{ dg_mgsvmods_tool_dir }}")
+        import snakebite_lib as lib
+        state = lib.inspect_game(r"{{ dg_mgsvmods_game_dir }}", lib.Reporter())
+        if state.kind == "clean":
+            print("already-clean")
+        else:
+            rep = lib.restore_originals(state, lib.Reporter())
+            print("restored:", rep)
+        PY
+      register: _mgsvmods_restore
+      changed_when: "'restored:' in _mgsvmods_restore.stdout"
+
+    - name: Remove the tool + marker
+      ansible.builtin.file:
+        path: "{{ dg_mgsvmods_tool_dir }}"
+        state: absent
+
+    - name: Report reverted
+      ansible.builtin.debug:
+        msg: "MGSV mods removed and original master/*.dat restored. NAS archives + _backup-pre-mods untouched."
+
+- name: Install MGSV mods
+  when: not (dg_mgsvmods_revert | bool)
+  block:
+    - name: Download the pinned mgsv-mod-installer to the NAS
+      ansible.builtin.get_url:
+        url: "{{ dg_mgsvmods_tool_url }}"
+        dest: "{{ dg_mgsvmods_tool_tarball }}"
+        checksum: "sha256:{{ dg_mgsvmods_tool_sha256 }}"
+        mode: "0644"
+
+    - name: Extract the tool (commit-gated)
+      ansible.builtin.shell: |
+        set -eu
+        if [ -f "{{ dg_mgsvmods_tool_dir }}/snakebite_lib.py" ] &&
+           grep -qx "{{ dg_mgsvmods_tool_commit }}" "{{ dg_mgsvmods_tool_dir }}/.dg-ref" 2>/dev/null; then
+          exit 0
+        fi
+        rm -rf "{{ dg_mgsvmods_tool_dir }}"
+        mkdir -p "{{ dg_mgsvmods_tool_dir }}"
+        tar xzf "{{ dg_mgsvmods_tool_tarball }}" -C "{{ dg_mgsvmods_tool_dir }}" --strip-components=1
+        printf "%s\n" "{{ dg_mgsvmods_tool_commit }}" > "{{ dg_mgsvmods_tool_dir }}/.dg-ref"
+        echo tool-extracted
+      register: _mgsvmods_tool
+      changed_when: "'tool-extracted' in _mgsvmods_tool.stdout"
+
+    - name: Verify every mod archive exists on the NAS
+      ansible.builtin.shell: |
+        set -eu
+        {% for mod in dg_mgsvmods_mods %}
+        [ -f "{{ dg_mgsvmods_src }}/{{ mod.archive }}" ] || { echo "MISSING: {{ mod.archive }}"; exit 1; }
+        {% endfor %}
+        echo archives-ok
+      register: _mgsvmods_archives
+      changed_when: false
+      failed_when: "'archives-ok' not in _mgsvmods_archives.stdout"
+
+    - name: Extract each mod archive to staging (once)
+      ansible.builtin.shell: |
+        set -eu
+        arc="{{ dg_mgsvmods_src }}/{{ item }}"
+        stag="{{ dg_mgsvmods_staging }}/$(basename "{{ item }}")"
+        [ -d "$stag" ] && exit 0
+        mkdir -p "$stag"
+        case "$arc" in
+          *.zip) unzip -oq "$arc" -d "$stag" ;;
+          *.rar) unrar x -o+ -idq "$arc" "$stag/" ;;
+          *.7z) 7z x -y "$arc" -o"$stag" >/dev/null ;;
+          *) echo "unsupported archive: $arc" >&2; exit 1 ;;
+        esac
+        echo staged
+      loop: "{{ dg_mgsvmods_mods | map(attribute='archive') | unique | list }}"
+      loop_control:
+        label: "{{ item }}"
+      register: _mgsvmods_stage
+      changed_when: "'staged' in _mgsvmods_stage.stdout"
+
+    - name: Install the mods into the game (snakebite_lib driver)
+      ansible.builtin.shell: |
+        set -eu
+        want="{{ dg_mgsvmods_mods | map(attribute='member') | sort | join('|') }}+{{ dg_mgsvmods_tool_commit }}"
+        got="$(cat "{{ dg_mgsvmods_tool_dir }}/.dg-mods-installed" 2>/dev/null || true)"
+        [ "$want" = "$got" ] && exit 0
+        python3 - <<'PY'
+        import sys
+        sys.path.insert(0, "{{ dg_mgsvmods_tool_dir }}")
+        import snakebite_lib as lib
+
+        game = r"{{ dg_mgsvmods_game_dir }}"
+        r = lib.Reporter()
+        state = lib.inspect_game(game, r)
+        if state.kind == "clean":
+            state = lib.setup_game(state, r)
+        if state.kind != "managed":
+            raise SystemExit("game not in a managed state: %s - %s" % (state.kind, state.detail))
+        mods = [
+          {% for mod in dg_mgsvmods_mods %}
+          r"{{ dg_mgsvmods_staging }}/{{ mod.archive | basename }}/{{ mod.member }}",
+          {% endfor %}
+        ]
+        rep = lib.install_mods(state, mods, r)
+        print("installed:", rep)
+        PY
+        printf "%s" "$want" > "{{ dg_mgsvmods_tool_dir }}/.dg-mods-installed"
+        echo mods-installed
+      register: _mgsvmods_install
+      changed_when: "'mods-installed' in _mgsvmods_install.stdout"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg:
+          - "MGSV: TPP mods installed ({{ dg_mgsvmods_mods | length }}): {{ dg_mgsvmods_mods | map(attribute='member') | join(', ') }}."
+          - "snakebite.xml now lists them; master/*.dat rewritten the SnakeBite 0.9.x way."
+          - "Mod 316 (No Development Requirements) is NOT installed — archive missing on the NAS."
+          - "Revert: ansible-playbook install-mgsvtpp-mods.yml -e dg_mgsvmods_revert=true"

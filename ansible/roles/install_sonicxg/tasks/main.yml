@@ -1,0 +1,80 @@
+---
+# Sonic XG — official native Linux AppImage from the NAS-staged zip.
+# See group_vars/all/sonicxg.yml and docs/sonic-fan-pack.md.
+
+- name: Revert Sonic XG when requested
+  when: dg_sonicxg_revert | bool
+  block:
+    - name: Remove the Sonic XG launcher + install dir (save dir kept)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ dg_sonicxg_launcher }}"
+        - "{{ dg_sonicxg_install_dir }}"
+    - name: Report Sonic XG reverted
+      ansible.builtin.debug:
+        msg: "Sonic XG removed. {{ dg_sonicxg_save_dir }} (replays, options) and the NAS zip are untouched."
+
+- name: Install Sonic XG
+  when: not (dg_sonicxg_revert | bool)
+  block:
+    - name: Verify the NAS-staged zip exists
+      ansible.builtin.stat:
+        path: "{{ dg_sonicxg_zip }}"
+      register: _sonicxg_zip
+      failed_when: not _sonicxg_zip.stat.exists
+
+    - name: Create Sonic XG directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_sonicxg_install_dir }}"
+        - "{{ dg_box_home }}/bin"
+
+    - name: Extract the AppImage from the staged zip (version-gated)
+      ansible.builtin.shell: |
+        set -eu
+        inst="{{ dg_sonicxg_install_dir }}"
+        if [ -x "{{ dg_sonicxg_bin }}" ] && grep -qx "{{ dg_sonicxg_version }}" "$inst/.dg-installed-ref" 2>/dev/null; then
+          exit 0
+        fi
+        unzip -o -q "{{ dg_sonicxg_zip }}" -d "$inst"
+        chmod 0755 "{{ dg_sonicxg_bin }}"
+        printf '%s\n' "{{ dg_sonicxg_version }}" > "$inst/.dg-installed-ref"
+        printf '%s\n' "installed-sonicxg"
+      register: _sonicxg_extract
+      changed_when: "'installed-sonicxg' in _sonicxg_extract.stdout"
+
+    - name: Deploy the launcher
+      ansible.builtin.template:
+        src: sonicxg.sh.j2
+        dest: "{{ dg_sonicxg_launcher }}"
+        mode: "0755"
+
+    - name: Render the desktop entry
+      ansible.builtin.template:
+        src: gaming-sonicxg.desktop.j2
+        dest: "{{ dg_desktop_render_dir }}/gaming-sonicxg.desktop"
+        mode: "0644"
+
+    - name: Install the desktop entry into the host applications dir
+      ansible.builtin.command:
+        cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+      environment:
+        DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+        DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+      register: _sonicxg_host_launchers
+      changed_when: >-
+        'installed ' in _sonicxg_host_launchers.stdout or
+        'removed stale ' in _sonicxg_host_launchers.stdout
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: >-
+          Sonic XG {{ dg_sonicxg_version }} at {{ dg_sonicxg_install_dir }};
+          launcher {{ dg_sonicxg_launcher }}. Replays/options in
+          {{ dg_sonicxg_save_dir }} (uuid.bin owns your best times — do not
+          lose it). Revert: -e dg_sonicxg_revert=true.

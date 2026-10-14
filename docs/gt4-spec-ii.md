@@ -118,3 +118,11 @@ exists yet (April 2026). In-race HUD is unaffected.
 - [Silent's blog GT4](https://silentsblog.com/mods/gran-turismo-4/)
 - [GTPlanet HD HUD thread 417873](https://www.gtplanet.net/forum/threads/gt4-hd-hud-and-user-interface-texture-pack-for-pcsx2.417873/)
 - [GTPlanet Retexture thread 408852](https://www.gtplanet.net/forum/threads/gran-turismo-4-retexture-mod-v3-0-4.408852/)
+
+## Money cheat
+
+Spec II boots with a pinned max-credits cheat (99,999,999 Cr, on by
+default). Credits are XOR-obfuscated and live at a different address than
+vanilla retail — vanilla "Max Cash" codes are actively harmful here (the
+old "ported experiment" variants were removed 2026-09-29). Details:
+[gt-money-cheats.md](gt-money-cheats.md).

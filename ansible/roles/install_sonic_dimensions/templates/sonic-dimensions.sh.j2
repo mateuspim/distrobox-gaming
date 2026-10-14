@@ -1,0 +1,38 @@
+#!/usr/bin/env sh
+set -eu
+# Sonic Dimensions launcher — Clickteam Fusion exe under wine-11.8,
+# presented fullscreen by gamescope (integer-scaled). Managed by
+# install_sonic_dimensions. 8BitDo via WineBus SDL.
+
+EXE="{{ dg_sonicdimensions_game_dir }}/{{ dg_sonicdimensions_exe }}"
+if [ ! -f "$EXE" ]; then
+  printf '%s\n' "ERROR: Sonic Dimensions not installed ($EXE)." >&2
+  printf '%s\n' "Run: cd {{ dg_project_root }}/ansible && ansible-playbook install-sonic-dimensions.yml" >&2
+  exit 1
+fi
+
+# Focus the main landscape 4K monitor (Hyprland >= 0.56 Lua IPC form).
+python3 - <<'PY' 2>/dev/null || true
+import socket, os, glob
+sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE")
+xdg = os.environ.get("XDG_RUNTIME_DIR", "/run/user/1026")
+paths = [f"{xdg}/hypr/{sig}/.socket.sock"] if sig else glob.glob(f"{xdg}/hypr/*/.socket.sock")
+if paths:
+    s = socket.socket(socket.AF_UNIX); s.connect(paths[0])
+    s.sendall(b'eval hl.dispatch(hl.dsp.focus({ monitor = "{{ dg_sonicdimensions_main_output }}" }))'); s.recv(256); s.close()
+PY
+
+export WINEPREFIX="{{ dg_sonicdimensions_prefix }}"
+export PATH="{{ dg_sonicdimensions_wine_bin_dir }}:$PATH"
+export WINEDEBUG=-all
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/nvidia_icd.json}"
+export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
+
+cd "{{ dg_sonicdimensions_game_dir }}"
+# gamescope presents the game's window fullscreen, integer-scaled (crisp
+# pixels); also subsumes the Wine-virtual-desktop corner-render fix
+# (modeswitches happen inside gamescope's nested session).
+exec env -u PYTHONHOME -u PYTHONPATH gamescope {{ dg_sonicdimensions_gamescope_args }} \
+  -- "{{ dg_sonicdimensions_wine_bin_dir }}/wine" "$EXE" "$@"

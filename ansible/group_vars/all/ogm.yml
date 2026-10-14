@@ -1,0 +1,515 @@
+---
+# ogm (omarchy-games-menu) integration — a host-side game launcher that builds
+# its collection from the desktop entries this repo exports. Primary discovery
+# is the X-OGM-* keys embedded in the rendered .desktop files (see
+# docs/ogm-launcher.md); the ogm_catalog role renders the same data to a
+# catalog.d fallback fragment.
+#
+# Why a separate list instead of ogm_* fields on the existing launcher data:
+# the launchers ogm consumes are spread across several data structures —
+# dg_emulator_launchers (launchers.yml), dg_pc_racing_games (pc_racing.yml),
+# dg_screamer_games (screamer.yml), dg_dkc_games (dkc_recomp.yml) — plus
+# one-off templates in roles/desktop_apps/templates/. Threading ogm_* keys
+# through all of them would duplicate the same concern across six-plus files;
+# one list keyed by desktop stem keeps the ogm contract in a single place and
+# references the existing dg_* vars for values (GitHub repos especially)
+# instead of restating them.
+#
+# dg_ogm_games fields (desktop_id / id / category required):
+#   desktop_id   desktop file stem in ~/.local/share/applications (no .desktop)
+#   id           ogm slug (desktop stem minus the gaming-/pc- prefix)
+#   name         optional display-name override; set only where the repo
+#                already tracks a clean title (dg_*_games name fields) and the
+#                rendered desktop Name= carries a "(on gaming)"-style suffix
+#   category     port|decomp|recomp|fangame|wine|arcade|emulator|tool|custom
+#   github       owner/repo — ALWAYS derived from an existing dg_* var (the
+#                regex below strips any github.com URL form down to
+#                owner/repo); never a value invented in this file
+#   sgdb_query   SteamGridDB search name for cover art — the ORIGINAL game's
+#                canonical title (a recomp/port/fan game shows the source
+#                game's art). Set on real games only; emulators and tools are
+#                not in SteamGridDB, so they get ogm's placeholder cards.
+#   managed      set false for the explicit opt-out — emits X-OGM-Managed=false
+#                so ogm excludes the entry even if its legacy filename glob
+#                matches (e.g. gaming-steam). Omit for normal entries.
+#   web_url      canonical project/download page (X-OGM-WebURL) — for games
+#                with NO github key, so ogm can poll the page for update
+#                badges (baseline fingerprint first, badge on change). Do NOT
+#                set on github-backed games: the GitHub Releases API already
+#                covers their update signal and UpdateURL defaults to WebURL,
+#                so they'd be polled twice.
+#   update_url   page to poll (X-OGM-UpdateURL) — omit to poll web_url.
+#   update_regex Rust regex, capture group 1 = version string on the raw HTML
+#                page (X-OGM-UpdateRegex). Only after verifying against the
+#                live page (curl | grep -oP). No backslashes — desktop-entry
+#                values treat '\' as an escape. Without it ogm falls back to
+#                ETag/content-hash fingerprinting (badge without version text).
+#                Prefer no regex over a brittle one on JS-heavy pages.
+
+dg_ogm_enabled: true
+dg_ogm_catalog_path: "{{ ansible_env.HOME }}/.config/ogm/catalog.d/distrobox-gaming.toml"
+
+dg_ogm_games:
+  # ── Emulator apps ────────────────────────────────────────────────
+  - { desktop_id: gaming-es-de, id: es-de, category: tool }
+  - { desktop_id: gaming-dolphin, id: dolphin, category: emulator }
+  - { desktop_id: gaming-duckstation, id: duckstation, category: emulator }
+  - { desktop_id: gaming-pcsx2, id: pcsx2, category: emulator }
+  - { desktop_id: gaming-melonds, id: melonds, category: emulator }
+  - { desktop_id: gaming-ppsspp, id: ppsspp, category: emulator }
+  - { desktop_id: gaming-rpcs3, id: rpcs3, category: emulator }
+  - { desktop_id: gaming-xemu, id: xemu, category: emulator }
+  - { desktop_id: gaming-eden, id: eden, category: emulator }
+  - { desktop_id: gaming-cemu, id: cemu, category: emulator }
+  - { desktop_id: gaming-vita3k, id: vita3k, category: emulator }
+  - { desktop_id: gaming-retroarch, id: retroarch, category: emulator }
+  - { desktop_id: gaming-flycast, id: flycast, category: emulator }
+  # azahar.yml header records the upstream in a comment, not a dg_* var.
+  - { desktop_id: gaming-azahar, id: azahar, category: emulator,
+      github: "azahar-emu/azahar" }
+  - desktop_id: gaming-shadps4-gui
+    id: shadps4-gui
+    category: emulator
+    github: "{{ dg_shadps4_qtlauncher_releases_api | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+
+  # ── Steam ────────────────────────────────────────────────────────
+  # Deliberately excluded from the menu: managed=false is the explicit opt-out
+  # (emits X-OGM-Managed=false), so ogm skips it even though its legacy glob
+  # would otherwise match. No category/github/cover.
+  - { desktop_id: gaming-steam, id: steam, managed: false }
+
+  # ── Companion tools ──────────────────────────────────────────────
+  - desktop_id: gaming-xenia-manager
+    id: xenia-manager
+    category: tool
+    github: "{{ dg_xenia_manager_release_api | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-eden-cheats-manager
+    id: eden-cheats-manager
+    category: tool
+    github: "{{ dg_eden_cheats_manager_download_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-7th-heaven
+    id: 7th-heaven
+    category: tool
+    github: "{{ dg_7th_heaven_release_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  # Launches FFVII classic through 7th Heaven (7th-heaven launch-game boots the
+  # game, not the manager GUI) — a Wine game, not a tool.
+  - desktop_id: gaming-ffvii-7th-heaven
+    id: ffvii-7th-heaven
+    category: wine
+    sgdb_query: "Final Fantasy VII"
+    github: "{{ dg_7th_heaven_release_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+
+  # ── Ports / source reimplementations ─────────────────────────────
+  - desktop_id: gaming-opensc2k
+    id: opensc2k
+    category: port
+    sgdb_query: "SimCity 2000"
+    github: "{{ dg_opensc2k_repo }}"
+  - desktop_id: gaming-ship-of-harkinian
+    id: ship-of-harkinian
+    category: port
+    sgdb_query: "The Legend of Zelda: Ocarina of Time"
+    github: "{{ dg_ship_of_harkinian_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-2ship2harkinian
+    id: 2ship2harkinian
+    category: port
+    sgdb_query: "The Legend of Zelda: Majora's Mask"
+    github: "{{ dg_two_ship2harkinian_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-starship
+    id: starship
+    category: port
+    sgdb_query: "Star Fox 64"
+    github: "{{ dg_starship_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-spaghettikart
+    id: spaghettikart
+    category: port
+    sgdb_query: "Mario Kart 64"
+    github: "{{ dg_spaghettikart_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  # Enhanced reimplementation of the OutRun arcade engine — runs on the
+  # original Rev B ROM data (like a source port), not a decompilation.
+  - desktop_id: gaming-cannonball
+    id: cannonball
+    category: port
+    sgdb_query: "OutRun"
+    github: "{{ dg_cannonball_repo | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-wipeout-pe
+    id: wipeout-pe
+    category: port
+    sgdb_query: "Wipeout"
+    github: "{{ dg_wipeout_pe_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-perfect-dark
+    id: perfect-dark
+    category: port
+    sgdb_query: "Perfect Dark"
+    github: "{{ dg_pd_repo }}"
+  - desktop_id: gaming-dude
+    id: dude
+    category: port
+    sgdb_query: "Doom 3"
+    github: "{{ dg_dude_repo | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-dusk
+    id: dusk
+    category: port
+    sgdb_query: "Dusk"
+    github: "{{ dg_dusk_release_api | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-doom2-ray-traced
+    id: doom2-ray-traced
+    category: port
+    sgdb_query: "Doom II"
+    github: "{{ dg_prboom_rt_release_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  # SDL source port of the SNES original (UltraStarFox codebase), not a
+  # decomp/recomp — see starfox_enhanced.yml.
+  - desktop_id: gaming-starfox-enhanced
+    id: starfox-enhanced
+    category: port
+    sgdb_query: "Star Fox"
+    github: "{{ dg_sfe_repo }}"
+  # Fan-made enhanced port of Sonic 3 & Knuckles (needs the original ROM).
+  - desktop_id: gaming-sonic3air
+    id: sonic3air
+    category: port
+    sgdb_query: "Sonic 3 & Knuckles"
+    github: "{{ dg_s3air_repo }}"
+  # libultraship native PC port of F-Zero X (+ 64DD Expansion Kit) — its own
+  # desktop entry calls it a "Native F-Zero X PC port"; grouped with the other
+  # libultraship ports (SoH/Starship), not the fan games.
+  - desktop_id: gaming-gdiffuser
+    id: gdiffuser
+    category: port
+    sgdb_query: "F-Zero X"
+    github: "{{ dg_gdiffuser_repo }}"
+  # Native Vulkan port of the SF Rush: The Rock + SF Rush 2049 arcades. No
+  # GitHub — t3hd0gg.com only. The Download section's first AppImage href is
+  # always the current version (verified 2026-09-25: captures 0.7.1).
+  - { desktop_id: gaming-project-r, id: project-r, category: port,
+      sgdb_query: "San Francisco Rush 2049",
+      web_url: "https://t3hd0gg.com/project-r/",
+      update_regex: "project-r-([0-9]+([.][0-9]+)+)-linux-x86_64[.]AppImage" }
+
+  # ── Decompilations ───────────────────────────────────────────────
+  - desktop_id: gaming-render96ex
+    id: render96ex
+    category: decomp
+    sgdb_query: "Super Mario 64"
+    github: "{{ dg_render96ex_repo_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-sonic2-2013
+    id: sonic2-2013
+    category: decomp
+    sgdb_query: "Sonic the Hedgehog 2"
+    github: "{{ dg_s2013_repo | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+
+  # ── Static recompilations ────────────────────────────────────────
+  - desktop_id: gaming-dk64-recomp
+    id: dk64-recomp
+    category: recomp
+    sgdb_query: "Donkey Kong 64"
+    github: "{{ dg_dk64_repo }}"
+  - desktop_id: gaming-dkc1-recomp
+    id: dkc1-recomp
+    name: "{{ dg_dkc_games | selectattr('key', 'eq', 'dkc1') | map(attribute='name') | first }}"
+    category: recomp
+    sgdb_query: "Donkey Kong Country"
+    github: "{{ dg_dkc_games | selectattr('key', 'eq', 'dkc1') | map(attribute='repo') | first | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-dkc2-recomp
+    id: dkc2-recomp
+    name: "{{ dg_dkc_games | selectattr('key', 'eq', 'dkc2') | map(attribute='name') | first }}"
+    category: recomp
+    sgdb_query: "Donkey Kong Country 2: Diddy's Kong Quest"
+    github: "{{ dg_dkc_games | selectattr('key', 'eq', 'dkc2') | map(attribute='repo') | first | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-dkc3-recomp
+    id: dkc3-recomp
+    name: "{{ dg_dkc_games | selectattr('key', 'eq', 'dkc3') | map(attribute='name') | first }}"
+    category: recomp
+    sgdb_query: "Donkey Kong Country 3: Dixie Kong's Double Trouble!"
+    github: "{{ dg_dkc_games | selectattr('key', 'eq', 'dkc3') | map(attribute='repo') | first | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-lighthouse
+    id: lighthouse
+    category: port
+    sgdb_query: "Banjo-Kazooie"
+    github: "{{ dg_lighthouse_repo }}"
+  - desktop_id: gaming-midnightclubla
+    id: midnightclubla
+    category: port
+    sgdb_query: "Midnight Club: Los Angeles"
+    github: "{{ dg_mcla_repo }}"
+  - desktop_id: gaming-roadrash64
+    id: roadrash64
+    category: recomp
+    sgdb_query: "Road Rash 64"
+    github: "{{ dg_rr64_repo }}"
+  - desktop_id: gaming-fzero
+    id: fzero
+    category: recomp
+    sgdb_query: "F-Zero"
+    github: "{{ dg_fzero_repo }}"
+  - desktop_id: gaming-sm64ds-port
+    id: sm64ds-port
+    category: port
+    sgdb_query: "Super Mario 64 DS"
+    web_url: "https://tangos.dev/"
+  - desktop_id: gaming-wwhd-recomp
+    id: wwhd-recomp
+    category: recomp
+    sgdb_query: "The Legend of Zelda The Wind Waker HD"
+    github: "{{ dg_wwhd_repo }}"
+  - desktop_id: gaming-goldeneye
+    id: goldeneye
+    category: recomp
+    sgdb_query: "GoldenEye 007"
+    github: "{{ dg_ge64_repo | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-mph-recomp
+    id: mph-recomp
+    category: recomp
+    sgdb_query: "Metroid Prime Hunters"
+    github: "{{ dg_mph_repo }}"
+  - desktop_id: gaming-waverace-recomp
+    id: waverace-recomp
+    category: recomp
+    sgdb_query: "Wave Race 64"
+    github: "{{ dg_wr64_zip_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-pilotwings-recomp
+    id: pilotwings-recomp
+    category: recomp
+    sgdb_query: "Pilotwings 64"
+    github: "{{ dg_pw64_tarball_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-cbfd-recomp
+    id: cbfd-recomp
+    category: recomp
+    sgdb_query: "Conker's Bad Fur Day"
+    github: "{{ dg_cbfd_tarball_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-dkr-r
+    id: dkr-r
+    category: recomp
+    sgdb_query: "Diddy Kong Racing"
+    github: "{{ dg_dkr_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-beetle-recomp
+    id: beetle-recomp
+    category: recomp
+    sgdb_query: "Beetle Adventure Racing"
+    github: "{{ dg_bar_zip_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  # Banjo-Tooie Recompiled — Windows-only alpha under Wine; upstream tags are
+  # all prereleases, so update checks must list releases (not /latest).
+  - desktop_id: gaming-banjotooie-recomp
+    id: banjotooie-recomp
+    category: recomp
+    sgdb_query: "Banjo-Tooie"
+    github: "{{ dg_btooie_zip_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  # Doom 64 RT — native Linux AppImage from the acolomba fork (upstream-
+  # endorsed). NOTE: the fork is what we track, not upstream jlrouzies-fr.
+  - desktop_id: gaming-doom64-rt
+    id: doom64-rt
+    category: source-port
+    sgdb_query: "Doom 64"
+    github: "{{ dg_d64rt_appimage_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-sotn-recomp
+    id: sotn-recomp
+    category: recomp
+    sgdb_query: "Castlevania: Symphony of the Night"
+    github: "{{ dg_sotn_recomp_asset_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-unleashed-recomp
+    id: unleashed-recomp
+    category: recomp
+    sgdb_query: "Sonic Unleashed"
+    github: "{{ dg_unleashed_recomp_release_api | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: gaming-triaevum
+    id: triaevum
+    category: recomp
+    sgdb_query: "The Legend of Zelda: Ocarina of Time 3D"
+    github: "{{ dg_triaevum_zip_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+
+  # ── Fan games / fan remakes ──────────────────────────────────────
+  - desktop_id: gaming-smb-remastered
+    id: smb-remastered
+    category: fangame
+    sgdb_query: "Super Mario Bros."
+    github: "{{ dg_smb_remastered_repo }}"
+  - desktop_id: gaming-smw-remastered
+    id: smw-remastered
+    category: fangame
+    sgdb_query: "Super Mario World"
+    github: "{{ dg_smw_remastered_repo }}"
+  # itch.io / GameJolt / blog-distributed fan games — no GitHub repo recorded
+  # anywhere in the repo, so no github key. web_url gives ogm web-page update
+  # polling instead (fingerprint mode unless an update_regex is verified).
+  # itch upload titles carry the version; verified against the live page
+  # 2026-09-23 (captures 1.00.92 from "MMX Regenesis 1.00.92 Linux.x86_64").
+  - { desktop_id: gaming-mmx-regenesis, id: mmx-regenesis, category: fangame,
+      sgdb_query: "Mega Man X",
+      web_url: "https://mmxregenesis.itch.io/mega-man-x-regenesis",
+      update_regex: "MMX Regenesis ([0-9]+([.][0-9]+)+) Linux" }
+  # DKLR is Google Drive-only (kasquez) — no pollable project page, so no
+  # web_url (a Drive page fingerprint changes per session = false badges).
+  - { desktop_id: gaming-dklr, id: dklr, category: fangame,
+      sgdb_query: "Donkey Kong Land" }
+  # GameJolt page is a JS app shell — fingerprint mode (no version in raw HTML).
+  - { desktop_id: gaming-project-reignition, id: project-reignition, category: fangame,
+      sgdb_query: "Sonic and the Secret Rings",
+      web_url: "https://gamejolt.com/games/project_reignition/1082591" }
+  # P-06 is distributed via ChaosX's YouTube video descriptions (MediaFire) —
+  # no pollable project page, so no web_url.
+  - { desktop_id: gaming-sonic-p06, id: sonic-p06, category: fangame,
+      sgdb_query: "Sonic the Hedgehog (2006)" }
+  # Blogspot homepage: new release = new post = fingerprint change. No version
+  # string in the raw HTML (widget-rendered), so no regex.
+  - { desktop_id: gaming-sonic-sms-remake, id: sonic-sms-remake, category: fangame,
+      sgdb_query: "Sonic the Hedgehog (8-bit)",
+      web_url: "https://sonic-sms-remake.blogspot.com/" }
+  # Sonic XG (eXtended Genesis) — ULTRA RING's S3&K-epilogue fangame. Downloads
+  # are Google Drive links off the download page (no releases API) → fingerprint
+  # mode: new release = new Drive file IDs in the page HTML.
+  - { desktop_id: gaming-sonicxg, id: sonicxg, category: fangame,
+      sgdb_query: "Sonic XG",
+      web_url: "https://sonic-xg.github.io/download.html" }
+  # Sonic Galactic (Hatch engine) — Windows-only build under Wine. Downloads
+  # are links off the project page (no releases API) → fingerprint mode.
+  - { desktop_id: gaming-sonic-galactic, id: sonic-galactic, category: fangame,
+      sgdb_query: "Sonic Galactic",
+      web_url: "https://sonicgalactic.github.io/download.html" }
+  # Sonic Overture 2023 demo (Clickteam Fusion 2.5) — Windows-only under Wine.
+  # itch page; upload filename has no version — fingerprint mode.
+  - { desktop_id: gaming-sonic-overture, id: sonic-overture, category: fangame,
+      sgdb_query: "Sonic Overture",
+      web_url: "https://sonic-overture-team.itch.io/sonic-overture-2023-demo" }
+  # Sonic and the Fallen Star (Clickteam Fusion 2.5) — Windows-only under Wine.
+  # Project page links a Google Drive download — fingerprint mode.
+  - { desktop_id: gaming-sonic-fallen-star, id: sonic-fallen-star, category: fangame,
+      sgdb_query: "Sonic and the Fallen Star",
+      web_url: "https://stardropsmh.github.io/sonic-and-the-fallen-star/" }
+  # Sonic Classic (Rev 03.5, Clickteam MMF2) — Windows-only under Wine. Long-
+  # running fan game, no official releases API — fingerprint mode.
+  - { desktop_id: gaming-sonic-classic, id: sonic-classic, category: fangame,
+      sgdb_query: "Sonic Classic" }
+  # Sonic Legends Trial (GameMaker Studio 2, ULTRA RING) — Windows-only under
+  # Wine. itch page; fingerprint mode.
+  - { desktop_id: gaming-sonic-legends, id: sonic-legends, category: fangame,
+      sgdb_query: "Sonic Legends",
+      web_url: "https://ultra-ring.itch.io/sonic-legends-trial-version" }
+  # Sonic Rush Rerun (Unity) — Windows-only under Wine. GameJolt page;
+  # fingerprint mode (no releases API).
+  - { desktop_id: gaming-sonic-rush-rerun, id: sonic-rush-rerun, category: fangame,
+      sgdb_query: "Sonic Rush",
+      web_url: "https://gamejolt.com/games/sonicrushrerun/1030374" }
+  # Sonic Dimensions (Clickteam Fusion, Phantom-Radea) — Windows-only under
+  # Wine. Canonical page is the author's DeviantArt post (5.1.0 demo; 5.1.1 in
+  # development) — fingerprint mode.
+  - { desktop_id: gaming-sonic-dimensions, id: sonic-dimensions, category: fangame,
+      sgdb_query: "Sonic Dimensions",
+      web_url: "https://www.deviantart.com/phantom-radea/art/Sonic-Dimensions-5-1-1-In-Development-5-1-0-DEMO-963814256" }
+  # Sonic and the Moon Facility (Clickteam Fusion 2.5, StarDrop) — cancelled
+  # project; final 2025-02-10 build under Wine. GameJolt page; fingerprint
+  # mode (discontinued — badge unlikely to ever fire).
+  - { desktop_id: gaming-moon-facility, id: moon-facility, category: fangame,
+      sgdb_query: "Sonic and the Moon Facility",
+      web_url: "https://gamejolt.com/games/sonicmoonfacility/975042" }
+  # itch page; upload filename has no version — fingerprint mode.
+  - { desktop_id: gaming-openbor-sor-troubles-in-japan, id: openbor-sor-troubles-in-japan,
+      category: fangame, sgdb_query: "Streets of Rage",
+      web_url: "https://berlioz91.itch.io/streets-of-rage-troubles-in-japan" }
+  # v5.2 is the final/abandoned Bombergames release — informational link only;
+  # the archive.org page is static, so polling it never badges.
+  - { desktop_id: streets-of-rage-remake, id: streets-of-rage-remake, category: fangame,
+      sgdb_query: "Streets of Rage Remake",
+      web_url: "https://archive.org/details/sorrv-52-rev-550_202401" }
+
+  # ── Windows games under Wine ─────────────────────────────────────
+  # Names come from dg_pc_racing_games; the rendered desktop Name= carries a
+  # "(PC on gaming)" suffix.
+  - desktop_id: pc-colin-mcrae-rally-1
+    id: colin-mcrae-rally-1
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'colin-mcrae-rally-1') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Colin McRae Rally"
+  - desktop_id: pc-colin-mcrae-rally-2
+    id: colin-mcrae-rally-2
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'colin-mcrae-rally-2') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Colin McRae Rally 2.0"
+  - desktop_id: pc-colin-mcrae-rally-3
+    id: colin-mcrae-rally-3
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'colin-mcrae-rally-3') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Colin McRae Rally 3"
+  - desktop_id: pc-colin-mcrae-rally-04
+    id: colin-mcrae-rally-04
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'colin-mcrae-rally-04') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Colin McRae Rally 04"
+  - desktop_id: pc-colin-mcrae-dirt
+    id: colin-mcrae-dirt
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'colin-mcrae-dirt') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Colin McRae: Dirt"
+  - desktop_id: pc-colin-mcrae-dirt-2
+    id: colin-mcrae-dirt-2
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'colin-mcrae-dirt-2') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Colin McRae: Dirt 2"
+  - desktop_id: pc-outrun-2006
+    id: outrun-2006
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'outrun-2006') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "OutRun 2006: Coast 2 Coast"
+    # The game is retail (no updates), but the installer layers emoose's
+    # OutRun2006Tweaks on top — badge on the tweak pack's GitHub releases.
+    github: "emoose/OutRun2006Tweaks"
+  - desktop_id: pc-prince-of-persia-sot
+    id: prince-of-persia-sot
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'prince-of-persia-sot') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Prince of Persia: The Sands of Time"
+  - desktop_id: pc-richard-burns-rally
+    id: richard-burns-rally
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'richard-burns-rally') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Richard Burns Rally"
+    # RSF (rallysimfans.hu) updates frequently; the page links the current
+    # pack torrent as rsf_installer_files_V<ver>.torrent — regex verified
+    # 2026-09-23, first match captures the current version (4.11).
+    web_url: "https://rallysimfans.hu"
+    update_regex: "rsf_installer_files_V([0-9]+([.][0-9]+)+)"
+  - desktop_id: pc-sega-rally-revo
+    id: sega-rally-revo
+    name: "{{ dg_pc_racing_games | selectattr('slug', 'eq', 'sega-rally-revo') | map(attribute='name') | first }}"
+    category: wine
+    sgdb_query: "Sega Rally Revo"
+  # Wanszai arcade-to-PC wrappers under Wine (ridge_racer.yml / sega_rally.yml
+  # / model1.yml).
+  - desktop_id: ridge-racer
+    id: ridge-racer
+    name: "Ridge Racer Collection"
+    category: wine
+    sgdb_query: "Ridge Racer"
+    github: "{{ dg_ridge_racer_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: sega-rally-hd
+    id: sega-rally-hd
+    category: wine
+    sgdb_query: "Sega Rally Championship"
+    github: "{{ dg_sega_rally_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: virtua-racing
+    id: virtua-racing
+    category: wine
+    sgdb_query: "Virtua Racing"
+    github: "{{ dg_model1_vr_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+  - desktop_id: virtua-fighter
+    id: virtua-fighter
+    category: wine
+    sgdb_query: "Virtua Fighter"
+    github: "{{ dg_model1_vf_url | regex_replace('^https://(api\\.)?github\\.com/(repos/)?([^/]+/[^/]+?)(\\.git)?(/.*)?$', '\\3') }}"
+
+  # ── MS-DOS games under dosbox-staging ────────────────────────────
+  # No Wine, no port — ogm's catch-all. Names from dg_screamer_games.
+  - desktop_id: screamer
+    id: screamer
+    name: "{{ dg_screamer_games | selectattr('slug', 'eq', 'screamer') | map(attribute='name') | first }}"
+    category: custom
+    sgdb_query: "Screamer"
+  - desktop_id: screamer2
+    id: screamer2
+    name: "{{ dg_screamer_games | selectattr('slug', 'eq', 'screamer2') | map(attribute='name') | first }}"
+    category: custom
+    sgdb_query: "Screamer 2"
+  - desktop_id: screamer-rally
+    id: screamer-rally
+    name: "{{ dg_screamer_games | selectattr('slug', 'eq', 'screamer-rally') | map(attribute='name') | first }}"
+    category: custom
+    sgdb_query: "Screamer Rally"

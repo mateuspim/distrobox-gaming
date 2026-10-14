@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Diddy Kong Racing · Recompiled ({{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_dkr_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=DKR-R — Diddy Kong Racing (N64) static recompilation, N64Recomp + RT64 (Vulkan) on the RTX
+Categories=Game;
+Keywords=diddy;kong;racing;dkr;n64;recomp;rt64;
+StartupWMClass=DKR-R;
+{{ ogm_metadata('gaming-dkr-r') }}

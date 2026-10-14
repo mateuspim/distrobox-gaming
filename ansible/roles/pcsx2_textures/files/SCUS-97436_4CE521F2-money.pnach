@@ -1,0 +1,24 @@
+gametitle=Gran Turismo 4 Spec II [SCUS-97436] (U)
+// Max Credits for GT4 Spec II (our ISO runs as CRC 4CE521F2).
+//
+// GT4 stores credits XOR-obfuscated with key 0x7A726F706C6C525E,
+// 64-bit, little-endian across two words. Under Spec II the variable
+// moved from vanilla's 0xA1FCA8 to 0x9C86A8 (per ike9000's Spec II
+// credits research: github.com/ike9000e/game-patches-or-codes,
+// GT4_Spec2_SCUS97436 — his pnach targets CRC 646B2E29, but the credit
+// data layout is shared across Spec II builds; re-verify if Spec II is
+// ever updated).
+//
+// 99,999,999(d) = 0x05F5E0FF; XOR with low key word 0x6C6C525E gives
+// 0x6999B2A1. High word is 0 ^ 0x7A726F70. patch=1 = continuous write:
+// credits stay pinned at the cap, purchases never drain.
+//
+// Do NOT use the vanilla "Max Cash" codes (gameshark/madcatz/codejunkies
+// variants) under Spec II: wrong address + misunderstood XOR encoding
+// (they encode absurd amounts — one report of >4 quadrillion credits
+// glitching the save). The vanilla retail cheat file
+// 77E61C8A.pnach keeps them for the retail ISO only.
+[Money\Max Credits (99,999,999)]
+author=ike9000 (Spec II address), distrobox-gaming (cap value)
+patch=1,EE,209C86A8,extended,6999B2A1
+patch=1,EE,209C86AC,extended,7A726F70

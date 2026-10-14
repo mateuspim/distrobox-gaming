@@ -13,6 +13,13 @@
 # dg_roms_final_root: "{{ dg_external_games_root }}/ROMS_FINAL"
 # dg_external_usb_games_root: /run/media/me/STEAM
 #
+# OpenSC2K optional installer: an Inno Setup RAR for SimCity 2000 Special
+# Edition for Windows 95. The archive hash and SIMCITY.EXE hash are pinned in
+# group_vars/all/opensc2k.yml; update both if using a different supported copy.
+# dg_opensc2k_original_archive: /path/to/SimCity_2000_Special_Edition_Repack.rar
+# dg_opensc2k_original_archive_sha256: <SHA-256 of the RAR>
+# dg_opensc2k_original_exe_sha256: <SHA-256 of the extracted SIMCITY.EXE>
+#
 # Steam library root on the host. This is the ONE host-sudo target in the
 # whole playbook set: create_box chows it to the box UID/GID before the
 # container exists, so `site.yml` needs working host sudo (--ask-become-pass
@@ -147,3 +154,13 @@
 # sonic_p06, model1) force the GLX backend via UseEGL=N by default.
 # Set false only if a future wine build drops the EGL regression.
 # dg_wine_force_glx: true
+
+# Atari 2600/5200/7800/Lynx/800 ES-DE systems (off by default; see docs/atari.md).
+# Enable, then re-run configure_esde (site.yml --tags esde).
+# dg_atari_enabled: true
+
+# Atari ST (install-atari-st.yml; see docs/atari-st.md).
+# Enable to reapply its profile with reset-configs.yml --tags configs.
+# dg_atari_st_enabled: true
+# dg_atari_st_rom_dir: "{{ dg_rom_root }}/atarist"
+# dg_atari_st_tos_source: "{{ dg_bios_root }}/tos.img"

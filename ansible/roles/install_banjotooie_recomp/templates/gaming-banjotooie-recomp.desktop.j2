@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Banjo-Tooie Recompiled (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_btooie_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Banjo-Tooie Recompiled — N64 recomp PC port (RT64), Windows alpha under Wine.
+Categories=Game;
+Keywords=banjo;tooie;n64;recomp;recompiled;rt64;
+StartupWMClass=TooieRecompiled.exe;
+{{ ogm_metadata('gaming-banjotooie-recomp') }}

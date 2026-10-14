@@ -18,9 +18,9 @@ Steam appids resolved 2026-08-06 by scanning all libraries (189 apps).
 | Art of Rally | artofrally | `550320` | 4 | 🔧 built — verify in-game |
 | Alex Kidd in Miracle World DX | alexkiddinmiracleworlddx | `1333470` | 1 | ✅ (see below) |
 | Ace Combat 7 | acecombat7skiesunknown | `502500` | 1 | ✅ (see below) |
-| Batman: Arkham Knight | batmanarkhamknight | `208650` | 2 | ⏸️ deferred (TFC GUI) |
-| Batman: Arkham City GOTY | batmanarkhamcity | `200260` | 3 | ⏸️ deferred (TFC GUI) |
-| Batman: Arkham Asylum GOTY | batmanarkhamasylum | `35140` | 2 | ⏸️ deferred (TFC GUI) |
+| Batman: Arkham Knight | batmanarkhamknight | `208650` | 2 | ⏸️ deferred (TFC GUI) — see #13 |
+| Batman: Arkham City GOTY | batmanarkhamcity | `200260` | 3 | ⏸️ deferred (TFC GUI) — see #13 |
+| Batman: Arkham Asylum GOTY | batmanarkhamasylum | `35140` | 2 | ⏸️ deferred (TFC GUI) — see #13 |
 | Black Myth: Wukong | blackmythwukong | `2358720` | 1 | ✅ (see below) |
 | Bloodstained: RotN | bloodstainedritualofthenight | `692850` | 7 | ✅ (see below) |
 | Dark Souls Remastered | darksoulsremastered | `570940` | 3 | ✅ #293 (see below); #220 deferred, #7 dropped |
@@ -35,7 +35,7 @@ Steam appids resolved 2026-08-06 by scanning all libraries (189 apps).
 | MGS2 (Master Collection) | metalgearsolid2mc | `2131640` | 6 | ✅ 5/6 (see below) |
 | MGSV: Ground Zeroes | metalgearsolidvgz | `311340` | 2 | ⏸️ deferred (GzsTool/CE) |
 | MGS1 (Master Collection) | metalgearsolidmc | `2131630` | 2 | ✅ 1/2 (see below) |
-| MGSV: The Phantom Pain | metalgearsolidvtpp | `287700` | 5 | ⏸️ deferred (SnakeBite) |
+| MGSV: The Phantom Pain | metalgearsolidvtpp | `287700` | 5 | ✅ 4/5 via `install_mgsvtpp_mods` (mgsv-mod-installer, 2026-10-03); 316 archive missing |
 | Red Dead Redemption | reddeadredemption | `2668510` | 11 | ✅ 5/11 (see below) |
 | Red Dead Redemption 2 | reddeadredemption2 | `1174180` | 13 | ⏸️ deferred (ScriptHook/LML) |
 | Resident Evil 4 (2023 Remake) | residentevil42023 | `2050650` | 2 | ✅ 2/2 (see below) |
@@ -47,14 +47,14 @@ Steam appids resolved 2026-08-06 by scanning all libraries (189 apps).
 | Resident Evil 0 (HD Remaster) | residentevil0biohazard0hdremaster | `339340` | 2 | ✅ 1/2 (see below) |
 | RoboCop: Rogue City | robocoproguecity | `1681430` | 8 | ✅ 7/8 (~mods + UE4SS + save; 7 config) |
 | Sekiro: Shadows Die Twice | sekiro | `814380` | 2 | ✅ 2/2 (Weapon Wheel + Mod Engine) |
-| Marvel's Spider-Man Remastered | marvelsspidermanremastered | `1817070` | 8 | ⏸️ deferred (Overstrike GUI) |
-| Marvel's Spider-Man: Miles Morales | spidermanmilesmorales | `1817190` | 6 | ⏸️ deferred (Overstrike GUI) |
+| Marvel's Spider-Man Remastered | marvelsspidermanremastered | `1817070` | 8 | ✅ 8/8 via `install_spiderman_mods` (Overstrike CLI, 2026-10-03) |
+| Marvel's Spider-Man: Miles Morales | spidermanmilesmorales | `1817190` | 6 | ✅ 6/6 via `install_spiderman_mods` (Overstrike CLI, 2026-10-03) |
 | Streets of Rage 4 | streetsofrage4 | `985890` | 1 | ✅ mod 133 (REIGNITED) via existing `install_sor4_reignited` |
 | Tokyo Xtreme Racer | tokyoxtremeracer | `2634950` | 3 | ✅ 3/3 (~mods + UE4SS + save) |
 | WRC 5 | wrc5 | `354160` | 1 | ⚠️ flagged — not installed (DLC-unlock crack, see below) |
 | UNCHARTED: Legacy of Thieves | unchartedlegacyofthievescollection | `1659420` | 5 | ✅ 3/5 (see below) |
 | Yakuza 0 (Director's Cut) | yakuza0 | `2988580` | 10 | ⏸️ deferred (edition mismatch / RMM) |
-| The Witcher 3: Wild Hunt (Next-Gen) | witcher3 | `292030` | 12 | ✅ 11/12 (see below) |
+| The Witcher 3: Wild Hunt (Next-Gen) | witcher3 | `292030` | 13 | ✅ 12/13 (see below) |
 | WRC 7 | wrc7 | `621830` | 1 | ✅ 1/1 (EVOlution Mod 4.0, see below) |
 
 ### ✅ Revisited after later installs (2026-08-07)
@@ -121,8 +121,8 @@ GE‑Proton's wine bundles the .NET/media bits these need. Alternative: add the
 
 | Tool (staged under `_loaders/`) | Game(s) | Manual pass |
 |---|---|---|
-| **SnakeBite** `0.8` (`SnakeBite.Installer.exe`) | MGSV: The Phantom Pain (`287700`) | Install SnakeBite (installed ✅), point it at MGS_TPP, add the `.mgsv` files from `NexusMods/mgsvtpp/` (300, 316, 327, 406→Vibrant, 1011→Extreme), Build. |
-| **Overstrike** `v1.7.5` (`overstrike/app/Overstrike.exe`) | Spider-Man Remastered (`1817070`) + Miles Morales (`1817190`) | Needs **.NET 7.0 Desktop Runtime** — the `dotnet7` installer is staged and was installed into the `1817070` prefix (`… /install /quiet /norestart`); do the same for `1817190`. Then run Overstrike, add the `.smpcmod`/`.mmpcmod` files from `NexusMods/spiderman-r/` + `spiderman-mm/`, Install. |
+| **SnakeBite** `0.8` (`SnakeBite.Installer.exe`) | MGSV: The Phantom Pain (`287700`) | ✅ **AUTOMATED 2026-10-03** — replaced by [mgsv-mod-installer](https://github.com/mkaflowski/mgsv-mod-installer) (pure Python, output byte-identical to SnakeBite 0.9.2.5) via `install_mgsvtpp_mods` (`ansible-playbook install-mgsvtpp-mods.yml`). The role migrated the game from the old SnakeBite 0.8 layout (foxpatch-in-00.dat) to the 0.9.x layout (a_chunk7/a_texture7) and installed 4 mods (300, 327, 406→Vibrant, 1011→Extreme); 316's archive is missing from the NAS. Full pre-change backup at `NexusMods/mgsvtpp/_backup-pre-mods/`. |
+| **Overstrike** `v1.8.1` (`overstrike/Overstrike_v1.8.1.zip`) | Spider-Man Remastered (`1817070`) + Miles Morales (`1817190`) | ✅ **AUTOMATED 2026-10-03** via `install_spiderman_mods` (`ansible-playbook install-spiderman-mods.yml`; run with Steam stopped). Overstrike has a headless CLI since v1.7.2 — the old "GUI-only" park (issue #11) was wrong. .NET 7 Desktop Runtime is installed in both prefixes. The role stages the picks from `NexusMods/spiderman-r/` + `spiderman-mm/`, writes the profile JSON `mods` array directly (the CLI's add/enable-mod Assert on library-absolute paths — useless for automation) and runs `install-mods`. |
 | **GzsTool** `v0.6.0` (`GzsTool.v0.6.0.zip`) | MGSV: Ground Zeroes (`311340`) | Unpack/repack the `data_02.dat` QAR archive for the Improved Max Settings mod. |
 | **MagicRDR** `v1.3.10` (`MagicRDR_v1.3.10.zip`) | Red Dead Redemption (`2668510`) | Open `mapres.rpf`/`fonts.rpf`/`common.rpf` and inject the deferred RDR mods (525 minimap, 66 SMIC, 303 fast-horse, 140 deadeye). |
 | **DSR-TPUP** `1.5` (`dsr-tpup/`) | Dark Souls Remastered (`570940`) | Run `DSR-TPUP.exe` → Repack, for the DSR 2020 Textures (mod 220, ~6 GB, fetch separately). |
@@ -167,9 +167,9 @@ an interactive GUI.
 | Grand Theft Auto V Enhanced (`3240220`) | 5 of 7 (NextGen Euphoria 1 base, Better Fist Fighting 36, Addon Carpack 173, Real Vehicles 320, Skip Intro 216) inject into `.rpf` archives — need the **OpenIV / CodeWalker** GUI; the Script Hook V (Enhanced) + OpenRPF + mods/ toolchain is fragile under Proton. Headless-only: 354 Straight To Story (`.asi`, needs SHV) + 32 savegame (prefix profile). Carpack 173 needs game build v814.9+. |
 | Metal Gear Rising: Revengeance (`235460`) | HD Textures (46) are **TexMod `.tpf`** (need the TexMod/uMod GUI wrapping the exe under Wine); File Limit Remover (444) is a **patcher `.exe`** run under Wine; Cheat Table (25) is a **Cheat Engine `.CT`** (manual CE under Proton). Only Skip Credits (66) is a trivial `winmm.dll` drop — do it + the tool steps in a manual pass. |
 | MGSV: Ground Zeroes (`311340`) | Improved Max Settings (11) needs **GzsTool** to unpack/repack the `data_02.dat` QAR archive (a .NET build-time transform); Infinite Ammo (31) is a **Cheat Engine `.CT`** (manual CE under Proton). Neither is a clean file drop. |
-| MGSV: The Phantom Pain (`287700`) | All 5 mods are **`.mgsv`** packages requiring the **SnakeBite Mod Manager** (.NET WPF GUI that merges into `master/0/00.dat` + tracks `snakebite.xml`) — no headless CLI. Game is v1.0.15.1; archives preserved under NAS `NexusMods/mgsvtpp/`. Manual SnakeBite pass — install these variants: **300** No More Timers (`nmt_115v3.mgsv`), **316** No Development Requirements, **327** New Female Faces & Hairs v2.4, **406** ICBINR → pick **`ICBINR - Vibrant.mgsv`**, **1011** Beyond Ultra → pick **`Beyond Ultra - EXTREME - With FXAA.mgsv`**. |
+| MGSV: The Phantom Pain (`287700`) | ✅ **INSTALLED 2026-10-03** (4/5) via the `install_mgsvtpp_mods` role ([mgsv-mod-installer](https://github.com/mkaflowski/mgsv-mod-installer), issue #12 closed): **300** No More Timers, **327** New Female Faces & Hairs v2.4, **406** ICBINR - Vibrant, **1011** Beyond Ultra EXTREME FXAA. **316** No Development Requirements is NOT installed — its NAS archive dir is empty; re-download from Nexus and add it to `dg_mgsvmods_mods` to complete the set. Revert: `-e dg_mgsvmods_revert=true` (restores `master/*.dat` from backups). |
 | Yakuza 0 — **Director's Cut** (`2988580`) | **Edition mismatch + loader risk.** The Nexus `yakuza0` mods target the **original Yakuza 0** (`638970`, *not installed here*); the user has the **Director's Cut** (`2988580`). All 10 are **Ryu Mod Manager (RMM)** mods (`bootpar/`, `mod-meta.yaml`, `.par` replacements) that need RMM's `d3d11.dll`/YakuzaParless loader in a `mods/` folder. The DC uses the same OoE `.par` engine but relocated under `runtime/`, is a newer build, and has **online features** — so RMM's exe hook + original-Y0 `.par` overrides may not apply and could break online/the account. Unverifiable headlessly → deferred for a careful manual pass (confirm intent, set up RMM against the DC exe under Proton, test offline). Mods: 459 5x Multiplier, 563, 7 4K Font, 9, 250, 120, 12 Rebalanced, 513, 8, 862. Archives preserved under NAS `NexusMods/yakuza0/`. |
-| Marvel's Spider-Man Remastered (`1817070`) & Miles Morales (`1817190`) | Every listed mod is a **`.smpcmod`** / **`.mmpcmod`** / `.modular` package installed by the **Overstrike / "Modding Tool"** GUI, which patches the game's Insomniac-engine `asset_archive/*.toc`. The engine has **no loose-file loading**, so there's no headless path (unlike RE Engine natives). Archives preserved under NAS `NexusMods/spiderman-r/` + `spiderman-mm/`. Manual pass: run Overstrike under Proton, add the `.smpcmod`/`.mmpcmod` files, Install. Remastered: 1291 Real Brands, 3179 Expressive Combat, 3550 Tenacious, 2520 Infinite Web Gadget, 2868 Traversal Tweaks, 3200 Expressive Web Climbing, 634 NYC Lighting, 2524 Ultimate Spidey. Miles: 81 TaMT, 29 Unnerfed, 216 Realistic NYC, 26 Infinite Web Zip, 155 Infinite Camo, 317 Infinite Gadget Ammo. |
+| Marvel's Spider-Man Remastered (`1817070`) & Miles Morales (`1817190`) | ✅ **INSTALLED 2026-10-03** via the `install_spiderman_mods` role (Overstrike v1.8.1 CLI, issue #11 closed — a headless path existed since Overstrike v1.7.2). Overstrike bakes the mods into `asset_archive/toc` (`mods/mod*` + `toc.BAK`); no runtime loader, the games run through Steam as usual. Installed picks — Remastered (11): 1291 Real Brands, 3179 Expressive Combat (Full Replacer), 3550 Tenacious (Modular AiO), 2520 Infinite Web Gadget, 2868 TaMT (Swinging Standard + Traversal + Sprinting + Animations), 3200 Expressive Web Climbing, 634 NYC Lighting (**Day** variant), 2524 Ultimate Spidey. Miles (10): 81 TaMT (Swinging Standard + Traversal + Sprinting), 29 Unnerfed (Swinging Mode set), 216 Realistic NYC, 26 Infinite Web Zip, 155 Infinite Camo, 317 Infinite Gadget Ammo. Revert: `-e dg_smmods_revert=true` (restores toc from toc.BAK). |
 | Red Dead Redemption 2 (`1174180`) | No clean drop-in subset — every functional mod needs an external loader whose **Proton compatibility can't be verified headlessly**. **Script Hook RDR2** (`dinput8` ASI loader from dev-c.com) drives the `.asi` mods: 233 Rampage, 1662 Enhanced Brawling, 1675 A.E.M, 3465 Auto Looting, 1245 Reveal Map, 842 Better Horses, 1970 No Auto Horse Equipping, 3302 Auto Crafting, 1828 No VRAM Warning (Scripthook V2 file). **Lenny's Mod Loader (LML)** drives 1389 Remove Black Bars (`install.xml`), 2189 Terrain Textures Overhaul (**13.6 GB**), 5495 Spawns Fix (`gameconfig.xml`). 8 Intro Completed Save = user save data (manual). Manual pass: install ScriptHook RDR2 + LML under a GUI Proton session, verify they load, then drop each mod. |
 
 ### ✅ Follow-up review — FFVII 7th Heaven (reviewed 2026-08-06)
@@ -612,6 +612,7 @@ drop in headlessly (no loader). Manifest-tracked (whole mod folders).
 | [657 Super Turbo Lighting (NGE)](https://www.nexusmods.com/witcher3/mods/657) · [1024 High Quality Faces](https://www.nexusmods.com/witcher3/mods/1024) | visual `mod*/` folders (NGE = Next-Gen build) |
 | [38 Increased Creature Loot](https://www.nexusmods.com/witcher3/mods/38) | FOMOD — installed the **`2_ICL`** variant (`modICL`) |
 | [3580 HD Monsters Reworked](https://www.nexusmods.com/witcher3/mods/3580) | ✅ installed the **v5.0 Next-Gen** edition (~7 GB): `modHDMonstersReworked5` (Part 1) + `modHDMonstersReworked5_Exp` (Part 2, DLC monsters) + `modHDMR5_LOD` (LOD optimization). Monster textures only — no conflict with the other mods. Extracts on NAS scratch, not `/tmp`. |
+| [11260 Brothers in Arms UE 4.0.1](https://www.nexusmods.com/witcher3/mods/11260) | ✅ the big bug-fix + restored-content collection (MerseyRockoff, Next-Gen 4.04, no dependencies per its `info.json`). **User-downloaded zip** (staged at `witcher3/11260/local/`, `no_download: true`). Unlike the others its archive top level is `{bin, dlc, mods}`, so it uses the role's `root_merge: true` path — merges all three trees onto the game root, including the mod-menu XML at `bin/config/r4game/user_config_matrix/pc/BrothersInArms.xml` (the generic `mod*/dlc*` detector would have nested `mods/mods/` and dropped `bin/`). Manifest records `FILE:bin/...` entries; revert deletes those too. Cooked-bundle mod (`useLooseScripts: false`) — texture mods unaffected; loose-script mods (e.g. Over 9000) mask a few overlapping BIA fixes, no crash risk. |
 | [1021 HD Reworked Project](https://www.nexusmods.com/witcher3/mods/1021) | ⏭️ skipped — **OldGen-only** (the whole page tops out at the OldGen "Ultimate" v12, ~9.5 GB; there is no Next-Gen version, and CDPR folded HD Reworked textures into the official Next-Gen update). Wrong edition for this Next-Gen game. |
 
 Note: script mods that touch shared scripts (AutoLoot, Weight) may need **Script

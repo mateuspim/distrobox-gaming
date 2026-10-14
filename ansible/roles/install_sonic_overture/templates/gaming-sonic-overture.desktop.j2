@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic Overture (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_sonicoverture_bin }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic Overture 2023 demo — Clickteam Fusion classic-Sonic fangame, under Wine.
+Categories=Game;
+Keywords=sonic;overture;fangame;
+StartupWMClass=SonicOverture95.exe;
+{{ ogm_metadata('gaming-sonic-overture') }}

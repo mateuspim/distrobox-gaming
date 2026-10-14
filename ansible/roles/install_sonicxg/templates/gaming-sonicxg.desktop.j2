@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Sonic XG (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_sonicxg_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Sonic eXtended Genesis — ULTRA RING fan epilogue to the Death Egg Saga, native Linux AppImage.
+Categories=Game;
+Keywords=sonic;xg;extended genesis;fangame;
+StartupWMClass=Sonic_XG;
+{{ ogm_metadata('gaming-sonicxg') }}

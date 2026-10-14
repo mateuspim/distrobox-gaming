@@ -1,0 +1,36 @@
+---
+# OpenSC2K's Linux release includes Godot, native libraries, and a SoundFont.
+# The first launch imports assets from the user's own SimCity 2000 Special
+# Edition for Windows 95 (1996). See docs/opensc2k.md.
+dg_opensc2k_repo: nicholas-ochoa/OpenSC2K
+dg_opensc2k_version: "0.3.0"
+dg_opensc2k_archive_name: "OpenSC2K-{{ dg_opensc2k_version }}-linux-x64.tar.gz"
+dg_opensc2k_archive_url: "https://github.com/{{ dg_opensc2k_repo }}/releases/download/v{{ dg_opensc2k_version }}/{{ dg_opensc2k_archive_name }}"
+dg_opensc2k_archive_sha256: ae590f1972bab10de02334219426c9916de6e2c528fa65709d2b22bdf1bd952c
+dg_opensc2k_root: "{{ dg_box_home }}/tools/opensc2k"
+dg_opensc2k_cache_dir: "{{ dg_box_home }}/cache/opensc2k"
+dg_opensc2k_install_dir: "{{ dg_opensc2k_root }}/OpenSC2K-{{ dg_opensc2k_version }}-linux-x64"
+dg_opensc2k_launcher: "{{ dg_box_home }}/bin/opensc2k"
+
+# The user's Windows 95 Special Edition installer. The RAR contains an Inno
+# Setup executable and its companion BIN; no Wine execution is needed.
+dg_opensc2k_original_archive: "{{ ansible_facts.env.HOME }}/Downloads/Hydra/SimCity_2000_Special_Edition_Repack.rar"
+dg_opensc2k_original_archive_sha256: 77af4e8e99d8c8d1f036c9ec42425b3b295c55d8a74e25ec6aef2d7b531cf5d8
+dg_opensc2k_original_exe_sha256: 112d571f51f258ed065b51a74625f2427160ca877a9cac0375bc2c2ef0c5eb4a
+dg_opensc2k_source_stage: "{{ dg_opensc2k_cache_dir }}/simcity-source"
+dg_opensc2k_source_setup: "{{ dg_opensc2k_source_stage }}/SimCity 2000 Special Edition_Repack_Setup.exe"
+dg_opensc2k_original_root: "{{ dg_opensc2k_root }}/original/app"
+dg_opensc2k_original_exe: "{{ dg_opensc2k_original_root }}/SIMCITY.EXE"
+dg_opensc2k_user_data: "{{ dg_box_home }}/.local/share/godot/app_userdata/OpenSC2K"
+
+# A matching Godot editor runs the upstream import classes headlessly once.
+# The game release itself contains the engine but its export template cannot
+# execute a standalone import script.
+dg_opensc2k_godot_version: "4.7.2"
+dg_opensc2k_godot_archive: "Godot_v{{ dg_opensc2k_godot_version }}-stable_linux.x86_64.zip"
+dg_opensc2k_godot_url: "https://github.com/godotengine/godot-builds/releases/download/{{ dg_opensc2k_godot_version }}-stable/{{ dg_opensc2k_godot_archive }}"
+dg_opensc2k_godot_sha256: cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4
+dg_opensc2k_godot_dir: "{{ dg_opensc2k_cache_dir }}/godot-editor"
+dg_opensc2k_godot_bin: "{{ dg_opensc2k_godot_dir }}/Godot_v{{ dg_opensc2k_godot_version }}-stable_linux.x86_64"
+dg_opensc2k_godot_pack_root: "{{ dg_opensc2k_godot_dir }}/pack-root"
+dg_opensc2k_revert: false

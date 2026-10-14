@@ -1,0 +1,105 @@
+---
+# Per-game setup for install_spiderman_mods (included with _smmods_game set).
+
+- name: Extract the Overstrike app (version-gated)
+  ansible.builtin.shell: |
+    set -eu
+    work="{{ dg_smmods_work_root }}/{{ _smmods_game.id }}"
+    if [ -f "$work/Overstrike.exe" ] && grep -qx "{{ dg_smmods_overstrike_version }}" "$work/.dg-overstrike-ref" 2>/dev/null; then
+      exit 0
+    fi
+    mkdir -p "$work"
+    unzip -oq "{{ dg_smmods_overstrike_zip }}" -d "$work"
+    printf "%s\n" "{{ dg_smmods_overstrike_version }}" > "$work/.dg-overstrike-ref"
+    echo app-extracted
+  register: _smmods_app
+  changed_when: "'app-extracted' in _smmods_app.stdout"
+
+- name: Extract each mod archive to staging (once)
+  ansible.builtin.shell: |
+    set -eu
+    arc="{{ dg_smmods_nexus_root }}/{{ _smmods_game.mods_src }}/{{ item }}"
+    stag="{{ dg_smmods_work_root }}/_staging/{{ _smmods_game.id }}/$(basename "{{ item }}")"
+    [ -d "$stag" ] && exit 0
+    mkdir -p "$stag"
+    case "$arc" in
+      *.zip) unzip -oq "$arc" -d "$stag" ;;
+      *.rar) unrar x -o+ -idq "$arc" "$stag/" ;;
+      *) echo "unsupported archive: $arc" >&2; exit 1 ;;
+    esac
+    echo staged
+  loop: "{{ _smmods_game.mods | map(attribute='archive') | unique | list }}"
+  loop_control:
+    label: "{{ item }}"
+  register: _smmods_stage
+  changed_when: "'staged' in _smmods_stage.stdout"
+
+- name: Create the Overstrike working subdirs
+  ansible.builtin.file:
+    path: "{{ dg_smmods_work_root }}/{{ _smmods_game.id }}/{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "Mods Library"
+    - "Profiles"
+
+- name: Stage the picked mod files into the Overstrike Mods Library
+  ansible.builtin.copy:
+    src: "{{ dg_smmods_work_root }}/_staging/{{ _smmods_game.id }}/{{ item.archive | basename }}/{{ item.member }}"
+    dest: "{{ dg_smmods_work_root }}/{{ _smmods_game.id }}/Mods Library/{{ item.member | basename }}"
+    remote_src: true
+    mode: "0644"
+  loop: "{{ _smmods_game.mods }}"
+  loop_control:
+    label: "{{ item.member | basename }}"
+  register: _smmods_library
+
+- name: Create the Overstrike profile (once)
+  ansible.builtin.shell: |
+    set -eu
+    work="{{ dg_smmods_work_root }}/{{ _smmods_game.id }}"
+    [ -f "$work/Profiles/{{ _smmods_game.profile }}.json" ] && exit 0
+    cd "$work"
+    env -u DOTNET_ROOT -u DOTNET_ROOT_X86 -u DOTNET_CLI_HOME \
+      STEAM_COMPAT_DATA_PATH="{{ dg_smmods_steamapps }}/compatdata/{{ _smmods_game.appid }}" \
+      STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_smmods_compat_client_install }}" \
+      timeout 120 "{{ dg_smmods_proton }}" runinprefix ./Overstrike.exe \
+      create-profile {{ _smmods_game.profile }} \
+      "Z:$(echo "{{ dg_smmods_steamapps }}/common/{{ _smmods_game.game_dir }}" | sed 's|/|\\|g')"
+    echo profile-created
+  register: _smmods_profile
+  changed_when: "'profile-created' in _smmods_profile.stdout"
+
+- name: Point the profile's mods array at the staged picks
+  ansible.builtin.shell: |
+    python3 - <<'PY'
+    import json, sys
+    p = "{{ dg_smmods_work_root }}/{{ _smmods_game.id }}/Profiles/{{ _smmods_game.profile }}.json"
+    names = {{ _smmods_game.mods | map(attribute='member') | map('basename') | list | to_json }}
+    want = [[n, True] for n in names]
+    d = json.load(open(p))
+    if d.get("mods") == want:
+        sys.exit(0)
+    d["mods"] = want
+    json.dump(d, open(p, "w"), indent=1)
+    print("mods-json-updated")
+    PY
+  register: _smmods_modsjson
+  changed_when: "'mods-json-updated' in _smmods_modsjson.stdout"
+
+- name: Install the mods into the game (Overstrike bakes them into asset_archive)
+  ansible.builtin.shell: |
+    set -eu
+    work="{{ dg_smmods_work_root }}/{{ _smmods_game.id }}"
+    want="{{ _smmods_game.mods | map(attribute='member') | map('basename') | sort | join('|') }}+{{ dg_smmods_overstrike_version }}"
+    got="$(cat "$work/.dg-mods-installed" 2>/dev/null || true)"
+    [ "$want" = "$got" ] && exit 0
+    cd "$work"
+    env -u DOTNET_ROOT -u DOTNET_ROOT_X86 -u DOTNET_CLI_HOME \
+      STEAM_COMPAT_DATA_PATH="{{ dg_smmods_steamapps }}/compatdata/{{ _smmods_game.appid }}" \
+      STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_smmods_compat_client_install }}" \
+      timeout 280 "{{ dg_smmods_proton }}" runinprefix ./Overstrike.exe install-mods {{ _smmods_game.profile }}
+    printf "%s" "$want" > "$work/.dg-mods-installed"
+    echo mods-installed
+  register: _smmods_install
+  changed_when: "'mods-installed' in _smmods_install.stdout"

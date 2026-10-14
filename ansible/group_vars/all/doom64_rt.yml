@@ -1,0 +1,34 @@
+---
+# Doom 64 RT — path-traced Doom 64: Retribution (gzdoom-rt + RTGL1), native
+# Linux AppImage from acolomba/doom64-rt (upstream-endorsed community port;
+# upstream jlrouzies-fr/doom64-rt is Windows-only). Opt-in role
+# install_doom64_rt. See docs/doom64-rt.md.
+#
+# History: parked in issue #8 ("RTGL1 won't init under distrobox Wine"). The
+# native Linux port (2026-09) makes the Wine path moot — no Wine at all.
+#
+# The AppImage is hash-pinned on the NAS. Two ModDB downloads are required
+# but ModDB is Cloudflare-walled for curl, so they are USER-SUPPLIED on the
+# NAS (drop them next to the AppImage with the exact names below):
+#   1. Doom 64: Retribution v1.5  (moddb.com/mods/doom-64-retribution)
+#      -> retribution-v1.5.zip   (extract the WHOLE archive into game/)
+#   2. OGG music pack v1.3        (.../addons/doom-64-retribution-ogg-music-pack-v13)
+#      -> d64mus.zip              (contains D64MUS.PK3)
+# doom2.wad comes from the NAS Doom dir (DOOM II is required; Freedoom Phase
+# 2 would also work per upstream).
+
+dg_d64rt_version: "0.1.21-linux-beta.2"
+dg_d64rt_appimage_name: "doom64-rt-v{{ dg_d64rt_version }}-x86_64.AppImage"
+dg_d64rt_appimage_url: "https://github.com/acolomba/doom64-rt/releases/download/v{{ dg_d64rt_version }}/{{ dg_d64rt_appimage_name }}"
+dg_d64rt_appimage_sha256: "e24a47a5d9f3cc33616f704e4601f18222fbfb40cd0c760378c2ea850e2e3896"
+
+dg_d64rt_root: "{{ dg_roms_final_root }}/PC/doom64-rt"
+dg_d64rt_appimage: "{{ dg_d64rt_root }}/{{ dg_d64rt_appimage_name }}"
+dg_d64rt_retribution_archive: "{{ dg_d64rt_root }}/retribution-v1.5.zip"
+dg_d64rt_music_archive: "{{ dg_d64rt_root }}/d64mus.zip"
+dg_d64rt_doom2_wad: "{{ dg_external_games_root }}/Doom/GZDOOM/DOOM2.WAD"
+
+dg_d64rt_install_dir: "{{ dg_box_home }}/Games/doom64-rt"
+dg_d64rt_launcher: "{{ dg_box_home }}/bin/doom64-rt"
+dg_d64rt_main_output: "DP-1"
+dg_d64rt_revert: false

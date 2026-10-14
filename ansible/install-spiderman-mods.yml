@@ -1,0 +1,7 @@
+---
+- name: Install Spider-Man Remastered + Miles Morales Nexus mods (Overstrike CLI)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_spiderman_mods

@@ -1,0 +1,7 @@
+---
+- name: Install Sonic XG (official native Linux AppImage)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_sonicxg

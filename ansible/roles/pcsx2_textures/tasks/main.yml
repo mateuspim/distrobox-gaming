@@ -90,6 +90,50 @@
   loop_control:
     label: "{{ item.target_pnach }} <- {{ item.local_file }}"
 
+- name: "Strip retired local cheat blocks from deployed pnach files"
+  ansible.builtin.blockinfile:
+    path: "{{ dg_pcsx2_patches_dir }}/{{ item.target_pnach }}"
+    marker: "// ANSIBLE MANAGED APPEND: {{ item.local_file }}"
+    state: absent
+  loop: "{{ dg_pcsx2_patch_appends_removed | default([]) }}"
+  loop_control:
+    label: "{{ item.target_pnach }} strip {{ item.local_file }}"
+
+- name: "Deploy repo-local PCSX2 cheat files into the cheats dir"
+  ansible.builtin.copy:
+    src: "{{ item.local_file }}"
+    dest: "{{ dg_pcsx2_cheats_dir }}/{{ item.dest_name }}"
+    mode: "0644"
+  loop: "{{ dg_pcsx2_cheat_files | default([]) }}"
+  loop_control:
+    label: "{{ item.dest_name }}"
+
+# Cheat activation on PCSX2 2.x: bracketed cheats only run when named in
+# the per-game ini's [Cheats] Enable string list (repeated keys — ini_file
+# can't do those, hence lineinfile). EnableCheats=true itself is set via
+# dg_pcsx2_per_game_settings ([EmuCore] EnableCheats).
+- name: "Ensure PCSX2 gamesettings [Cheats] section exists"
+  ansible.builtin.lineinfile:
+    path: "{{ dg_box_home }}/.config/PCSX2/gamesettings/{{ item.serial }}_{{ item.crc }}.ini"
+    line: "[Cheats]"
+    insertafter: EOF
+    create: true
+    backup: true
+    mode: "0644"
+  loop: "{{ dg_pcsx2_cheat_enables | default([]) }}"
+  loop_control:
+    label: "{{ item.serial }}_{{ item.crc }} [Cheats] section"
+
+- name: "Enable named PCSX2 cheats in per-game ini"
+  ansible.builtin.lineinfile:
+    path: "{{ dg_box_home }}/.config/PCSX2/gamesettings/{{ item.0.serial }}_{{ item.0.crc }}.ini"
+    regexp: "^Enable = {{ item.1 | regex_escape }}$"
+    line: "Enable = {{ item.1 }}"
+    insertafter: "^\\[Cheats\\]$"
+  loop: "{{ dg_pcsx2_cheat_enables | default([]) | subelements('names') }}"
+  loop_control:
+    label: "{{ item.0.serial }}_{{ item.0.crc }} Enable={{ item.1 }}"
+
 - name: Per-game texture pack deployment
   ansible.builtin.include_tasks: deploy_pack.yml
   loop: "{{ dg_pcsx2_texture_packs }}"

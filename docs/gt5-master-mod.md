@@ -129,3 +129,13 @@ Rollbacks the role records paths for in the final debug summary:
   (BCUS98114)**. For EU (BCES00569), JP (BCJS30001), or ASIA
   (BCAS20108) you'd swap `dg_gt5_title_id`, the matching mod zip name,
   and the CDN base URL (the title hash component differs per region).
+
+## Save editing / money
+
+The Master Mod already covers free cars (START in Used Car Dealer,
+TRIANGLE on a color in New Dealer) and debug tickets (hold R1). For the
+credit balance itself we keep a rebuilt GT5SaveEditor CLI (RPCS3 saves are
+plaintext + PFD-less, so upstream's frontend can't run unmodified) —
+archived on the NAS, deployed to `~/.local/share/gt5-save-editor/` by this
+role's `tools` tag. Applied 2026-09-29: `cash` + `cash_limit` = 99,999,999.
+Details: [gt-money-cheats.md](gt-money-cheats.md).

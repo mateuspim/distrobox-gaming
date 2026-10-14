@@ -41,4 +41,16 @@ dg_witcher3_mods:
   - { id: "3580b", dl_mod: "3580", file: "48353", name: "HD Monsters Reworked 5.0 NG (Part 2)" }
   - { id: "3580c", dl_mod: "3580", file: "47980", name: "HDMR 5.0 NG LOD Optimization" }
 
+  # Brothers in Arms — Ultimate Edition 4.0.1 (Nexus 11260). The big
+  # bug-fix + restored-content collection (MerseyRockoff), Next-Gen 4.04.
+  # User-downloaded zip lives in staging (no Nexus file id needed);
+  # no_download skips the API call. Unlike the small mods above, this
+  # archive's top level is already {bin, dlc, mods}, so root_merge rsyncs
+  # those three trees straight onto the game root (the generic mod*/dlc*
+  # detector would nest mods/mods/ and drop the bin/ config XML).
+  # Coexists with the texture mods (HD Monsters/HQ Faces are textures-only);
+  # loose-script mods like modOver9000 still override BIA's bundled script
+  # fixes where they overlap — cosmetic loss of a few fixes, no crash.
+  - { id: "11260", file: "local", name: "Brothers in Arms UE 4.0.1", no_download: true, root_merge: true }
+
 dg_witcher3_revert: false

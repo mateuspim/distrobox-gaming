@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=OpenSC2K ({{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_opensc2k_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Open source SimCity 2000 remake
+Categories=Game;Simulation;
+Keywords=simcity;city;simulation;
+StartupWMClass=OpenSC2K;
+{{ ogm_metadata('gaming-opensc2k') }}

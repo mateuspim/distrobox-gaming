@@ -1,3 +1,4 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
 [Desktop Entry]
 Name=shadPS4 (on {{ dg_box_name }})
 Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_gpu_env }} shadps4
@@ -7,3 +8,4 @@ Icon=shadps4
 Comment=PlayStation 4 emulator
 Categories=Game;Emulator;
 StartupWMClass=shadPS4;
+{{ ogm_metadata('gaming-shadps4-gui') }}

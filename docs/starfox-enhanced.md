@@ -1,6 +1,6 @@
 # Star Fox Enhanced (SNES Star Fox source port)
 
-**Star Fox Enhanced** ([kandowontu/starfox-enhanced](https://github.com/kandowontu/starfox-enhanced))
+**Star Fox Enhanced** ([kandowontu2/starfox-enhanced](https://github.com/kandowontu2/starfox-enhanced))
 is a source port of the **SNES Star Fox** (1993, SuperFX) built on the
 open-source **UltraStarFox** codebase — selectable **20–480 FPS** with the
 original deterministic 20 Hz game logic, widescreen, HUD editor, GPU/software

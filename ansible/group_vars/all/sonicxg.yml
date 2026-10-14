@@ -1,0 +1,27 @@
+---
+# Sonic XG (eXtended Genesis) — ULTRA RING's fan-made epilogue to the Death
+# Egg Saga (Sonic 3 & Knuckles alternate Knuckles campaign), with blessings
+# from the original 2001/2012 devs. Time Attack Preview, OFFICIAL native
+# Linux AppImage (GameMaker runner). No ROM required. Opt-in role
+# install_sonicxg. See docs/sonic-fan-pack.md.
+#
+# Distribution is via Google Drive links on https://sonic-xg.github.io/
+# (no releases API) — the user downloads the zip to the NAS and we install
+# from there; bump dg_sonicxg_version + dg_sonicxg_zip on upgrades.
+# ogm.yml fingerprints the download page to badge new releases.
+# See docs/sonic-fan-pack.md.
+
+dg_sonicxg_version: "TA-Preview-V1.2"
+dg_sonicxg_zip: "{{ dg_roms_final_root }}/PC/SonicXG_TA-Preview-V1.2-Linux.zip"
+
+dg_sonicxg_install_dir: "{{ dg_box_home }}/Games/sonicxg"
+dg_sonicxg_bin: "{{ dg_sonicxg_install_dir }}/SonicXG_{{ dg_sonicxg_version }}-Linux.AppImage"
+dg_sonicxg_launcher: "{{ dg_box_home }}/bin/sonicxg"
+# Replays, best times (uuid.bin) and options live here (per the zip's README).
+dg_sonicxg_save_dir: "{{ dg_box_home }}/.config/Sonic_XG"
+
+dg_sonicxg_main_output: "DP-1"
+# gamescope presents the game's small fixed window fullscreen, integer-scaled
+# (crisp pixels — GameMaker window_scale left at its default on purpose).
+dg_sonicxg_gamescope_args: "-W 3840 -H 2160 -S integer -f"
+dg_sonicxg_revert: false

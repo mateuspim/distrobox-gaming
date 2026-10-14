@@ -1,0 +1,33 @@
+---
+# Sonic and the Moon Facility (final build) — StarDrop's 2D Sonic fangame on
+# Clickteam Fusion 2.5 (mmf2d3d9.dll, .mfx modules). The project was
+# cancelled; the ~90%-complete final build was released 2025-02-10 on
+# GameJolt. WINDOWS-only → wine-11.8 with the established recipe (UseEGL=N
+# GLX pin + WineBus SDL for the 8BitDo), fullscreen via gamescope integer
+# scaling. Opt-in role install_moon_facility. See docs/sonic-fan-pack.md.
+#
+# Source: the user's downloaded zip on the NAS (GameJolt page
+# gamejolt.com/games/sonicmoonfacility/975042; ogm.yml fingerprints the
+# page). The zip holds a top-level "Sonic and The Moon Facility (Final 2)/"
+# folder with "Sonic and The Moon Facility.exe" inside. Discontinued — no
+# further builds expected.
+
+dg_moonfacility_version: "final-2025-02-10"
+dg_moonfacility_zip: "{{ dg_roms_final_root }}/PC/sonic-and-the-moon-facility-last-build.zip"
+
+dg_moonfacility_install_dir: "{{ dg_box_home }}/Games/moon-facility"
+dg_moonfacility_game_dir: "{{ dg_moonfacility_install_dir }}/Sonic and The Moon Facility (Final 2)"
+dg_moonfacility_exe: "Sonic and The Moon Facility.exe"
+dg_moonfacility_bin: "{{ dg_box_home }}/bin/moon-facility"
+dg_moonfacility_prefix: "{{ dg_box_home }}/wineprefixes/moon-facility"
+dg_moonfacility_wine_bin_dir: "{{ dg_pc_racing_wine_runner_root }}/wine-11.8/usr/bin"
+dg_moonfacility_gamescope_args: "-W 3840 -H 2160 -S integer -f --framerate-limit 60"
+
+dg_moonfacility_winebus_registry:
+  - { name: DisableHidraw, value: 1 }
+  - { name: DisableInput, value: 1 }
+  - { name: "Enable SDL", value: 1 }
+  - { name: "Map Controllers", value: 1 }
+
+dg_moonfacility_main_output: "DP-1"
+dg_moonfacility_revert: false

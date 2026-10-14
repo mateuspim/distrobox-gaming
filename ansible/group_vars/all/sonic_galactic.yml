@@ -1,0 +1,32 @@
+---
+# Sonic Galactic (Demo 2, patch 1) — fan-made classic-Sonic homage on the
+# Hatch engine (sonicgalactic.github.io). WINDOWS-only build (a Mac M1 build
+# exists, no Linux) → wine-11.8 with the established recipe (UseEGL=N GLX pin
+# + WineBus SDL for the 8BitDo), fullscreen via gamescope integer scaling
+# (gamescope subsumes the Wine-virtual-desktop corner-render fix). Opt-in role
+# install_sonic_galactic. See
+# docs/sonic-fan-pack.md.
+#
+# Source: the user's downloaded zip on the NAS (SonicGalactic.exe +
+# Data.hatch inside). Downloads are links off the project download page (no
+# releases API) — bump dg_sonicgalactic_version + dg_sonicgalactic_zip on
+# upgrades; ogm.yml fingerprints the download page to badge new demos.
+
+dg_sonicgalactic_version: "demo2-patch1"
+dg_sonicgalactic_zip: "{{ dg_roms_final_root }}/PC/sonicgalactic-demo2-patch1-win.zip"
+
+dg_sonicgalactic_install_dir: "{{ dg_box_home }}/Games/sonic-galactic"
+dg_sonicgalactic_exe: "SonicGalactic.exe"
+dg_sonicgalactic_bin: "{{ dg_box_home }}/bin/sonic-galactic"
+dg_sonicgalactic_prefix: "{{ dg_box_home }}/wineprefixes/sonic-galactic"
+dg_sonicgalactic_wine_bin_dir: "{{ dg_pc_racing_wine_runner_root }}/wine-11.8/usr/bin"
+dg_sonicgalactic_gamescope_args: "-W 3840 -H 2160 -S integer -f"
+
+dg_sonicgalactic_winebus_registry:
+  - { name: DisableHidraw, value: 1 }
+  - { name: DisableInput, value: 1 }
+  - { name: "Enable SDL", value: 1 }
+  - { name: "Map Controllers", value: 1 }
+
+dg_sonicgalactic_main_output: "DP-1"
+dg_sonicgalactic_revert: false

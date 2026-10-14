@@ -1,0 +1,7 @@
+---
+- name: Install DKR-R — Diddy Kong Racing Recompiled (native Linux AppImage)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_dkr_recomp

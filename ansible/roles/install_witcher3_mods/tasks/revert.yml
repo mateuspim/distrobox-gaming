@@ -11,6 +11,7 @@
       [ -n "$rel" ] || continue
       case "$rel" in
         mods/*|dlc/*) rm -rf "$game/$rel" ;;
+        FILE:bin/*)   rm -f "$game/${rel#FILE:}" ;;   # root_merge mods drop config XMLs under bin/
       esac
     done < "$manifest"
     rm -f "$manifest"

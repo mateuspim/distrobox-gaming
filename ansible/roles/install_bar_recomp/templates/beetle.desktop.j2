@@ -1,0 +1,12 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Beetle Adventure Racing · Recompiled ({{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_bar_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Beetle Adventure Racing! Recompiled — N64Recomp + RT64 static recomp (Windows build under Wine, vkd3d-proton) on the RTX
+Categories=Game;
+Keywords=beetle;adventure;racing;n64;recomp;rt64;
+StartupWMClass=beetle-adventure-racing-recomp.exe;
+{{ ogm_metadata('gaming-beetle-recomp') }}
