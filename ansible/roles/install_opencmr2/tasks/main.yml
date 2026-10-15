@@ -1,0 +1,73 @@
+---
+- name: Check the existing CMR2 game data
+  ansible.builtin.stat:
+    path: "{{ dg_opencmr2_game_data }}/{{ item }}"
+  loop: [Game, FrontEnd, Sounds]
+  register: _opencmr2_data
+  failed_when: not _opencmr2_data.stat.isdir | default(false)
+
+- name: Create OpenCMR2 directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_opencmr2_root }}"
+    - "{{ dg_opencmr2_cache_dir }}"
+    - "{{ dg_opencmr2_user_dir }}"
+    - "{{ dg_box_home }}/bin"
+
+- name: Seed native settings without replacing user preferences
+  ansible.builtin.copy:
+    dest: "{{ dg_opencmr2_user_dir }}/opencmr2.ini"
+    content: "[install]\nsku = {{ dg_opencmr2_sku }}\n"
+    mode: "0644"
+    force: false
+
+- name: Match the original game media region
+  ansible.builtin.lineinfile:
+    path: "{{ dg_opencmr2_user_dir }}/opencmr2.ini"
+    regexp: '^sku\s*='
+    insertafter: '^\[install\]$'
+    line: "sku = {{ dg_opencmr2_sku }}"
+
+- name: Download verified OpenCMR2 Linux release
+  ansible.builtin.get_url:
+    url: "{{ dg_opencmr2_archive_url }}"
+    dest: "{{ dg_opencmr2_cache_dir }}/{{ dg_opencmr2_archive_name }}"
+    checksum: "sha256:{{ dg_opencmr2_archive_sha256 }}"
+    mode: "0644"
+
+- name: Extract OpenCMR2 release
+  ansible.builtin.unarchive:
+    src: "{{ dg_opencmr2_cache_dir }}/{{ dg_opencmr2_archive_name }}"
+    dest: "{{ dg_opencmr2_root }}"
+    remote_src: true
+
+- name: Make OpenCMR2 executable
+  ansible.builtin.file:
+    path: "{{ dg_opencmr2_install_dir }}/opencmr2"
+    mode: "0755"
+
+- name: Deploy OpenCMR2 launcher
+  ansible.builtin.template:
+    src: opencmr2.sh.j2
+    dest: "{{ dg_opencmr2_launcher }}"
+    mode: "0755"
+
+- name: Render OpenCMR2 desktop entry
+  ansible.builtin.template:
+    src: opencmr2.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-opencmr2.desktop"
+    mode: "0644"
+
+- name: Install desktop entries into host applications
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _opencmr2_host_launchers
+  changed_when: >-
+    'installed ' in _opencmr2_host_launchers.stdout or
+    'removed stale ' in _opencmr2_host_launchers.stdout

@@ -1,0 +1,7 @@
+---
+- name: Install OpenCMR2 alongside Colin McRae Rally 2.0 for Wine
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_opencmr2

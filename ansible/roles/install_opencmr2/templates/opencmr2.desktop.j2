@@ -1,0 +1,11 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Colin McRae Rally 2.0 (OpenCMR2)
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_opencmr2_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Native OpenCMR2 port using the installed PC game data
+Categories=Game;SportsGame;
+Keywords=colin mcrae;rally;cmr2;opencmr2;
+{{ ogm_metadata('gaming-opencmr2') }}

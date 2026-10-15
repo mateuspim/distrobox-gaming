@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ ! -x "{{ dg_gow3_pc_appimage }}" ]; then
+  printf '%s\n' 'God of War III PC port is not installed.' >&2
+  exit 1
+fi
+if [ ! -f "{{ dg_gow3_pc_game_dir }}/eboot.bin" ]; then
+  printf '%s\n' 'God of War III game files are missing.' >&2
+  exit 1
+fi
+
+export GOW3_GAME_DIR="{{ dg_gow3_pc_game_dir }}"
+exec "{{ dg_gow3_pc_appimage }}" "$@"

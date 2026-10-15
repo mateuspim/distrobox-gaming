@@ -1,0 +1,12 @@
+---
+# Optional Half-Life: Alyx NoVR overlay. Override the library root in
+# host_vars/localhost.yml when Alyx is in another Steam library.
+dg_alyx_novr_appid: 546560
+dg_alyx_novr_steam_library_root: "{{ dg_steam_root }}"
+dg_alyx_novr_game_dir: "{{ dg_alyx_novr_steam_library_root }}/steamapps/common/Half-Life Alyx/game"
+dg_alyx_novr_revision: 0d29fc0486f89b3da6fdbb2517c0a50638320e90
+dg_alyx_novr_archive_sha256: 6c2379b5a1a07ac367859754f0c7b8e6c97d11a7c5f947c7dea0fd245ef415d7
+dg_alyx_novr_cache_dir: "{{ dg_box_home }}/.cache/distrobox-gaming/hla-novr"
+dg_alyx_novr_proton_tool: proton_11
+dg_alyx_novr_launch_options: "-novr -vsync +vr_enable_fake_vr 1"
+dg_alyx_novr_revert: false

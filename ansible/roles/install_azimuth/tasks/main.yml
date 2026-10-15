@@ -1,0 +1,101 @@
+---
+- name: Check the Forza Horizon 2 game layout
+  ansible.builtin.stat:
+    path: "{{ dg_azimuth_game_dir }}/{{ item }}"
+  loop:
+    - era.vbi
+    - Mount/AppxManifest.xml
+    - Mount
+    - EmbeddedXvd
+  register: _azimuth_game_files
+
+- name: Require Azimuth-compatible Xbox One files
+  ansible.builtin.assert:
+    that:
+      - _azimuth_game_files.results[0].stat.isreg | default(false)
+      - _azimuth_game_files.results[1].stat.isreg | default(false)
+      - _azimuth_game_files.results[2].stat.isdir | default(false)
+      - _azimuth_game_files.results[3].stat.isdir | default(false)
+    fail_msg: "Expected Xbox One Forza Horizon 2 v1.0.0.64 with era.vbi, Mount/AppxManifest.xml, Mount/ and EmbeddedXvd/ under dg_azimuth_game_dir."
+
+- name: Confirm the Xbox One game version from its manifest
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import sys
+        import xml.etree.ElementTree as ET
+        identity = ET.parse(sys.argv[1]).getroot().find('{*}Identity')
+        version = identity.get('Version') if identity is not None else None
+        if version != sys.argv[2]:
+            raise SystemExit(f'Unsupported game version: {version!r}')
+        print(version)
+      - "{{ dg_azimuth_game_dir }}/Mount/AppxManifest.xml"
+      - "{{ dg_azimuth_supported_game_version }}"
+  changed_when: false
+
+- name: Check the downloaded Azimuth package
+  ansible.builtin.stat:
+    path: "{{ dg_azimuth_zip }}"
+    checksum_algorithm: sha256
+  register: _azimuth_zip
+
+- name: Verify the Azimuth package and Proton
+  ansible.builtin.assert:
+    that:
+      - _azimuth_zip.stat.isreg | default(false)
+      - _azimuth_zip.stat.checksum | default('') == dg_azimuth_zip_sha256
+      - dg_azimuth_proton is file
+    fail_msg: "Azimuth zip hash or Proton executable is missing; check dg_azimuth_zip and dg_azimuth_proton."
+
+- name: Create Azimuth installation directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_azimuth_install_dir }}"
+    - "{{ dg_box_home }}/bin"
+
+- name: Check installed Azimuth version marker
+  ansible.builtin.stat:
+    path: "{{ dg_azimuth_install_dir }}/.dg-installed-{{ dg_azimuth_version }}"
+  register: _azimuth_installed
+
+- name: Extract Azimuth wrapper into its install directory
+  ansible.builtin.unarchive:
+    src: "{{ dg_azimuth_zip }}"
+    dest: "{{ dg_azimuth_install_dir }}"
+    remote_src: true
+  when: not _azimuth_installed.stat.exists
+
+- name: Record installed Azimuth version
+  ansible.builtin.file:
+    path: "{{ dg_azimuth_install_dir }}/.dg-installed-{{ dg_azimuth_version }}"
+    state: touch
+    mode: "0644"
+  when: not _azimuth_installed.stat.exists
+
+- name: Install Azimuth launcher
+  ansible.builtin.template:
+    src: azimuth-fh2.sh.j2
+    dest: "{{ dg_azimuth_launcher }}"
+    mode: "0755"
+
+- name: Render Azimuth desktop entry
+  ansible.builtin.template:
+    src: azimuth-fh2.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-azimuth-fh2.desktop"
+    mode: "0644"
+
+- name: Install Azimuth host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _azimuth_host_launchers
+  changed_when: >-
+    'installed ' in _azimuth_host_launchers.stdout or
+    'removed stale ' in _azimuth_host_launchers.stdout

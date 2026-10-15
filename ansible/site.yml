@@ -25,6 +25,9 @@
     - { role: retroarch_extras,          tags: [retroarch, never] }
     - { role: pcsx2_textures,            tags: [pcsx2_textures, never] }
     - { role: install_pc_racing,         tags: [pc_racing, never] }
+    - { role: install_opencmr2,          tags: [opencmr2, never] }
+    - { role: install_gow3_pc,           tags: [gow3_pc, never] }
+    - { role: install_azimuth,           tags: [azimuth, never] }
     - { role: install_m2emulator,        tags: [m2emulator, never] }
     - { role: install_model1,            tags: [model1, never] }
     - { role: install_sega_rally,        tags: [sega_rally, never] }
@@ -51,6 +54,7 @@
     - { role: metal_gear_master_collection, tags: [metal_gear_master_collection, never] }
     - { role: install_re4_hd,            tags: [re4_hd, never] }
     - { role: install_gta4_mods,         tags: [gta4_mods, never] }
+    - { role: install_alyx_novr,         tags: [alyx_novr, never] }
     - { role: install_artofrally_mods,   tags: [artofrally_mods, never] }
     - { role: install_alexkidddx_mods,   tags: [alexkidddx_mods, never] }
     - { role: install_ac7_mods,          tags: [ac7_mods, never] }

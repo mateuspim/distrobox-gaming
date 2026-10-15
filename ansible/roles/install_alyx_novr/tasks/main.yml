@@ -1,0 +1,122 @@
+---
+- name: Revert Half-Life Alyx NoVR when requested
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ dg_project_root }}/scripts/install-hla-novr.py"
+      - --game
+      - "{{ dg_alyx_novr_game_dir }}"
+      - --revert
+  register: _alyx_novr_revert
+  changed_when: "'changed: true' in _alyx_novr_revert.stdout"
+  when: dg_alyx_novr_revert | bool
+
+- name: Install Half-Life Alyx NoVR
+  when: not (dg_alyx_novr_revert | bool)
+  block:
+    - name: Check Alyx is installed in the selected Steam library
+      ansible.builtin.stat:
+        path: "{{ dg_alyx_novr_game_dir }}/hlvr/gameinfo.gi"
+      register: _alyx_novr_gameinfo
+
+    - name: Require a complete Alyx installation
+      ansible.builtin.assert:
+        that: _alyx_novr_gameinfo.stat.isreg | default(false)
+        fail_msg: >-
+          Half-Life: Alyx ({{ dg_alyx_novr_appid }}) is not at
+          {{ dg_alyx_novr_game_dir }}. Set dg_alyx_novr_steam_library_root
+          to the mounted Steam library containing steamapps/.
+
+    - name: Ensure the NoVR source cache exists
+      ansible.builtin.file:
+        path: "{{ dg_alyx_novr_cache_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Download the pinned NoVR Linux snapshot
+      ansible.builtin.get_url:
+        url: "https://codeload.github.com/HLANoVR/HLA-NoVR/tar.gz/{{ dg_alyx_novr_revision }}"
+        dest: "{{ dg_alyx_novr_cache_dir }}/{{ dg_alyx_novr_revision }}.tar.gz"
+        checksum: "sha256:{{ dg_alyx_novr_archive_sha256 }}"
+        mode: "0644"
+
+    - name: Extract the pinned NoVR snapshot
+      ansible.builtin.unarchive:
+        src: "{{ dg_alyx_novr_cache_dir }}/{{ dg_alyx_novr_revision }}.tar.gz"
+        dest: "{{ dg_alyx_novr_cache_dir }}"
+        remote_src: true
+        creates: "{{ dg_alyx_novr_cache_dir }}/HLA-NoVR-{{ dg_alyx_novr_revision }}/game/novr/pak01_dir.vpk"
+
+    - name: Install the reversible NoVR file overlay
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/install-hla-novr.py"
+          - --game
+          - "{{ dg_alyx_novr_game_dir }}"
+          - --source
+          - "{{ dg_alyx_novr_cache_dir }}/HLA-NoVR-{{ dg_alyx_novr_revision }}/game"
+          - --revision
+          - "{{ dg_alyx_novr_revision }}"
+      register: _alyx_novr_install
+      changed_when: "'changed: true' in _alyx_novr_install.stdout"
+
+    - name: Check whether Steam is running
+      ansible.builtin.shell: |
+        pgrep -u "$(id -u)" -x steam >/dev/null \
+          || pgrep -u "$(id -u)" -x steamwebhelper >/dev/null
+      register: _alyx_novr_steam_running
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Find Steam user-local settings
+      ansible.builtin.find:
+        paths: "{{ dg_box_home }}/.local/share/Steam/userdata"
+        patterns: localconfig.vdf
+        recurse: true
+      register: _alyx_novr_localconfigs
+      when: _alyx_novr_steam_running.rc != 0
+
+    - name: Require one Steam account for automatic settings
+      ansible.builtin.assert:
+        that: _alyx_novr_localconfigs.matched == 1
+        fail_msg: "Expected one Steam localconfig.vdf; set Alyx's options manually."
+      when: _alyx_novr_steam_running.rc != 0
+
+    - name: Force Proton for Alyx when Steam is closed
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/set-steam-compat-tool.py"
+          - --config
+          - "{{ dg_box_home }}/.local/share/Steam/config/config.vdf"
+          - --tool
+          - "{{ dg_alyx_novr_proton_tool }}"
+          - --appid
+          - "{{ dg_alyx_novr_appid }}"
+      register: _alyx_novr_compat
+      changed_when: "'changed: true' in _alyx_novr_compat.stdout"
+      when: _alyx_novr_steam_running.rc != 0
+
+    - name: Set Alyx launch options when Steam is closed
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/set-steam-launch-options.py"
+          - --localconfig
+          - "{{ _alyx_novr_localconfigs.files[0].path }}"
+          - --set
+          - "{{ dg_alyx_novr_appid }}"
+          - "{{ dg_alyx_novr_launch_options }}"
+      register: _alyx_novr_options
+      changed_when: "'changed: true' in _alyx_novr_options.stdout"
+      when: _alyx_novr_steam_running.rc != 0
+
+    - name: Report live Steam settings that must be set in its UI
+      ansible.builtin.debug:
+        msg: >-
+          Steam is running, so its config files were not changed. In Steam,
+          force {{ dg_alyx_novr_proton_tool }} for Half-Life: Alyx and set
+          launch options to '{{ dg_alyx_novr_launch_options }}'.
+      when: _alyx_novr_steam_running.rc == 0

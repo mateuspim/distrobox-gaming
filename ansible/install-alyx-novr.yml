@@ -1,0 +1,7 @@
+---
+- name: Install Half-Life Alyx NoVR into the Steam game
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_alyx_novr

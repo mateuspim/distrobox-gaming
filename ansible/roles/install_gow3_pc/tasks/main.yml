@@ -1,0 +1,72 @@
+---
+- name: Check God of War III game files
+  ansible.builtin.stat:
+    path: "{{ dg_gow3_pc_game_dir }}/{{ item }}"
+  register: _gow3_game_files
+  loop:
+    - eboot.bin
+    - sce_module/libc.prx
+    - sce_module/libSceFios2.prx
+    - sce_sys/param.sfo
+
+- name: Require a complete game root
+  ansible.builtin.assert:
+    that: "_gow3_game_files.results | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg') | list | length == 4"
+    fail_msg: "Set dg_gow3_pc_game_dir to the folder containing eboot.bin, sce_module and sce_sys."
+
+- name: Create God of War III install and launcher directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_gow3_pc_install_dir }}"
+    - "{{ dg_box_home }}/bin"
+    - "{{ dg_box_home }}/.config/gow3-launcher"
+
+- name: Seed God of War III launcher settings for the tested NVIDIA path
+  ansible.builtin.copy:
+    dest: "{{ dg_box_home }}/.config/gow3-launcher/settings.json"
+    content: |
+      {
+        "game_dir": "{{ dg_gow3_pc_game_dir }}",
+        "pipeline_binary_cache": false
+      }
+    mode: "0644"
+    force: false
+
+- name: Install the pinned God of War III Linux AppImage
+  ansible.builtin.get_url:
+    url: "{{ dg_gow3_pc_asset_url }}"
+    dest: "{{ dg_gow3_pc_appimage }}"
+    checksum: "sha256:{{ dg_gow3_pc_asset_sha256 }}"
+    mode: "0755"
+
+- name: Record the God of War III release
+  ansible.builtin.copy:
+    dest: "{{ dg_gow3_pc_install_dir }}/.dg-installed-ref"
+    content: "{{ dg_gow3_pc_release_tag }}\n"
+    mode: "0644"
+
+- name: Install the God of War III launcher
+  ansible.builtin.template:
+    src: gow3-pc.sh.j2
+    dest: "{{ dg_gow3_pc_launcher }}"
+    mode: "0755"
+
+- name: Render the God of War III desktop entry
+  ansible.builtin.template:
+    src: gow3-pc.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-gow3-pc.desktop"
+    mode: "0644"
+
+- name: Install host desktop entries
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _gow3_host_launchers
+  changed_when: >-
+    'installed ' in _gow3_host_launchers.stdout or
+    'removed stale ' in _gow3_host_launchers.stdout

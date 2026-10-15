@@ -1,0 +1,11 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=God of War III Remastered · PC Port (on {{ dg_box_name }})
+Exec=/usr/bin/distrobox-enter -n {{ dg_box_name }} -- {{ dg_gow3_pc_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Native Linux port of God of War III Remastered using your PS4 game files.
+Categories=Game;
+Keywords=god of war;gow3;ps4;port;
+{{ ogm_metadata('gaming-gow3-pc') }}

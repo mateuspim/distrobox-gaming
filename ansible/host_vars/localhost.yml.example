@@ -25,6 +25,7 @@
 # container exists, so `site.yml` needs working host sudo (--ask-become-pass
 # or a NOPASSWD entry) the first time it runs.
 # dg_steam_root: "{{ dg_data_root }}/steam"
+# dg_alyx_novr_steam_library_root: /path/to/SteamLibrary  # contains steamapps/
 #
 # Roots derived from dg_emudeck_root (override individually only if
 # your layout diverges from EmuDeck's default):
@@ -154,6 +155,13 @@
 # sonic_p06, model1) force the GLX backend via UseEGL=N by default.
 # Set false only if a future wine build drops the EGL regression.
 # dg_wine_force_glx: true
+
+# OpenCMR2 (optional native port beside the CMR2 Wine install). Override only
+# if the untouched PC game data is not at dg_pc_racing_source_root's default.
+# dg_opencmr2_game_data: "/path/to/Colin McRae Rally 2"
+# dg_gow3_pc_game_dir: "/path/to/CUSA01623"  # contains eboot.bin and sce_module/
+# dg_azimuth_game_dir: "/path/to/Anthem_1.0.0.64_x64__8wekyb3d8bbwe"
+# dg_azimuth_proton: "/path/to/GE-Proton/proton"
 
 # Atari 2600/5200/7800/Lynx/800 ES-DE systems (off by default; see docs/atari.md).
 # Enable, then re-run configure_esde (site.yml --tags esde).

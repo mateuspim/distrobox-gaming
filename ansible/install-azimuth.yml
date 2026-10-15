@@ -1,0 +1,7 @@
+---
+- name: Install Azimuth for Forza Horizon 2
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_azimuth
