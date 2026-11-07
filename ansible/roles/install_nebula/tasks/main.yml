@@ -1,0 +1,201 @@
+---
+- name: Check the pinned Nebula artifacts
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ dg_nebula_exe }}"
+    - "{{ dg_nebula_install_dir }}/versions/{{ dg_nebula_version }}/RMGE01_game.dll"
+    - "{{ dg_nebula_install_dir }}/versions/{{ dg_nebula_version }}/RMGE01_home_button.dll"
+    - "{{ dg_nebula_install_dir }}/versions/{{ dg_nebula_version }}/RMGE01_dsp.dll"
+    - "{{ dg_nebula_install_dir }}/content/game.pak"
+  register: _nebula_existing_artifacts
+
+- name: Check the current Nebula version record
+  ansible.builtin.stat:
+    path: "{{ dg_nebula_install_dir }}/current.json"
+  register: _nebula_current_file
+
+- name: Read the current Nebula version record
+  ansible.builtin.slurp:
+    src: "{{ dg_nebula_install_dir }}/current.json"
+  register: _nebula_existing_current
+  when: _nebula_current_file.stat.isreg | default(false)
+
+- name: Determine whether Nebula is already installed
+  ansible.builtin.set_fact:
+    _nebula_ready: >-
+      {{
+        (_nebula_existing_artifacts.results | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg') | list | length == 5)
+        and (_nebula_current_file.stat.isreg | default(false))
+        and ((_nebula_existing_current.content | b64decode | from_json).version == dg_nebula_version)
+      }}
+
+- name: Install Nebula from the owned game image
+  when: not _nebula_ready | bool
+  block:
+    - name: Check the Super Mario Galaxy image
+      ansible.builtin.stat:
+        path: "{{ dg_nebula_game_image }}"
+      register: _nebula_image
+
+    - name: Require the game image
+      ansible.builtin.assert:
+        that:
+          - _nebula_image.stat.isreg | default(false)
+        fail_msg: Set dg_nebula_game_image to the owned RMGE01 revision 0 image.
+
+    - name: Check the disc ID and revision
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - |
+            import sys
+            with open(sys.argv[1], 'rb') as image:
+                header = image.read(8)
+            if header[:6] != b'RMGE01' or header[7] != 0:
+                raise SystemExit('Nebula requires RMGE01 revision 0')
+          - "{{ dg_nebula_game_image }}"
+      changed_when: false
+
+    - name: Create Nebula cache and prefix directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ dg_nebula_cache_dir }}"
+        - "{{ dg_nebula_nkit_dir }}"
+        - "{{ dg_nebula_prefix }}"
+
+    - name: Download the pinned NKit CLI
+      ansible.builtin.get_url:
+        url: "{{ dg_nebula_nkit_url }}"
+        dest: "{{ dg_nebula_cache_dir }}/NKit_linux-x64_CLI_{{ dg_nebula_nkit_version }}.zip"
+        checksum: "sha256:{{ dg_nebula_nkit_sha256 }}"
+        mode: "0644"
+
+    - name: Extract the NKit CLI
+      ansible.builtin.unarchive:
+        src: "{{ dg_nebula_cache_dir }}/NKit_linux-x64_CLI_{{ dg_nebula_nkit_version }}.zip"
+        dest: "{{ dg_nebula_nkit_dir }}"
+        remote_src: true
+        creates: "{{ dg_nebula_nkit_dir }}/nkit"
+
+    - name: Download the pinned Nebula setup
+      ansible.builtin.get_url:
+        url: "{{ dg_nebula_setup_url }}"
+        dest: "{{ dg_nebula_cache_dir }}/Nebula-Setup.exe"
+        checksum: "sha256:{{ dg_nebula_setup_sha256 }}"
+        mode: "0644"
+
+    - name: Extract the NKit game files without changing the source image
+      ansible.builtin.command:
+        argv:
+          - "{{ dg_nebula_nkit_dir }}/nkit"
+          - extract
+          - --system
+          - wii
+          - --output
+          - "{{ dg_nebula_extract_root }}"
+          - "{{ dg_nebula_game_image }}"
+        creates: "{{ dg_nebula_extracted_game_dir }}/sys/main.dol"
+
+    - name: Require the extracted disc structure
+      ansible.builtin.stat:
+        path: "{{ dg_nebula_extracted_game_dir }}/{{ item }}"
+      loop:
+        - sys/main.dol
+        - sys/boot.bin
+        - files/ModuleData/product.sel
+      register: _nebula_extracted_files
+
+    - name: Confirm the extracted game files are complete
+      ansible.builtin.assert:
+        that: _nebula_extracted_files.results | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg') | list | length == 3
+
+    - name: Compile and install Nebula with distrobox Wine
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/distrobox-enter
+          - -n
+          - "{{ dg_box_name }}"
+          - --
+          - env
+          - "WINEPREFIX={{ dg_nebula_prefix }}/pfx"
+          - WINEDEBUG=-all
+          - wine
+          - "{{ dg_nebula_cache_dir }}/Nebula-Setup.exe"
+          - --unattended
+          - --root
+          - 'C:\Nebula'
+          - --input
+          - "Z:{{ dg_nebula_extracted_game_dir }}"
+          - --jobs
+          - "{{ dg_nebula_compile_jobs }}"
+          - --accept-build-tools-license
+      register: _nebula_setup
+      failed_when: false
+
+    - name: Check the compiled Nebula artifacts
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ dg_nebula_exe }}"
+        - "{{ dg_nebula_install_dir }}/versions/{{ dg_nebula_version }}/RMGE01_game.dll"
+        - "{{ dg_nebula_install_dir }}/versions/{{ dg_nebula_version }}/RMGE01_home_button.dll"
+        - "{{ dg_nebula_install_dir }}/versions/{{ dg_nebula_version }}/RMGE01_dsp.dll"
+        - "{{ dg_nebula_install_dir }}/content/game.pak"
+      register: _nebula_artifacts
+
+    - name: Read the installed Nebula version
+      ansible.builtin.slurp:
+        src: "{{ dg_nebula_install_dir }}/current.json"
+      register: _nebula_current
+
+    - name: Require a complete compiled Nebula installation
+      ansible.builtin.assert:
+        that:
+          - _nebula_artifacts.results | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg') | list | length == 5
+          - (_nebula_current.content | b64decode | from_json).version == dg_nebula_version
+        fail_msg: Nebula setup did not produce a complete installation; check its setup log in the isolated Wine prefix.
+
+  always:
+    - name: Remove the temporary extracted game copy
+      ansible.builtin.file:
+        path: "{{ dg_nebula_extract_root }}"
+        state: absent
+
+- name: Remove any extraction left by an earlier completed Nebula install
+  ansible.builtin.file:
+    path: "{{ dg_nebula_extract_root }}"
+    state: absent
+
+- name: Create Nebula launcher directory
+  ansible.builtin.file:
+    path: "{{ dg_box_home }}/bin"
+    state: directory
+    mode: "0755"
+
+- name: Install Nebula launcher
+  ansible.builtin.template:
+    src: nebula-galaxy.sh.j2
+    dest: "{{ dg_nebula_launcher }}"
+    mode: "0755"
+
+- name: Render Nebula desktop entry
+  ansible.builtin.template:
+    src: nebula-galaxy.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-nebula-galaxy.desktop"
+    mode: "0644"
+
+- name: Install Nebula host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _nebula_host_launchers
+  changed_when: >-
+    'installed ' in _nebula_host_launchers.stdout or
+    'removed stale ' in _nebula_host_launchers.stdout

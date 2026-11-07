@@ -1,0 +1,35 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "${1:-}" = status ]; then
+  if [ -f "{{ dg_dcr_base_dir }}/game000.dat" ] &&
+     [ -f "{{ dg_dcr_update_dir }}/eboot.bin" ] &&
+     [ -f "{{ dg_dcr_update_dir }}/sce_sys/param.sfo" ] &&
+     grep -aq CUSA00093 "{{ dg_dcr_update_dir }}/sce_sys/param.sfo" &&
+     grep -aq 01.28 "{{ dg_dcr_update_dir }}/sce_sys/param.sfo"; then
+    printf '%s\n' 'DriveClub Recomp: CUSA00093 v1.28 game data found.'
+  else
+    printf '%s\n' 'DriveClub Recomp: staged, but CUSA00093 v1.28 game data is missing.'
+  fi
+  exit 0
+fi
+
+if [ ! -f "{{ dg_dcr_base_dir }}/game000.dat" ] ||
+   [ ! -f "{{ dg_dcr_update_dir }}/eboot.bin" ] ||
+   [ ! -f "{{ dg_dcr_update_dir }}/sce_sys/param.sfo" ] ||
+   ! grep -aq CUSA00093 "{{ dg_dcr_update_dir }}/sce_sys/param.sfo" ||
+   ! grep -aq 01.28 "{{ dg_dcr_update_dir }}/sce_sys/param.sfo"; then
+  printf '%s\n' 'DriveClub Recomp requires the US CUSA00093 v1.28 dump. The installed EU CUSA00003 copy is unsupported.' >&2
+  exit 1
+fi
+
+export STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_dcr_steam_root }}"
+export STEAM_COMPAT_DATA_PATH="{{ dg_dcr_compatdata }}"
+export SteamAppId=0
+export SteamGameId=0
+export VK_ICD_FILENAMES="${VK_ICD_FILENAMES:-/usr/share/vulkan/icd.d/nvidia_icd.json}"
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+mkdir -p "$STEAM_COMPAT_DATA_PATH"
+cd "{{ dg_dcr_install_dir }}"
+exec "{{ dg_dcr_proton }}" run "{{ dg_dcr_install_dir }}/DriveClub.exe" "$@"

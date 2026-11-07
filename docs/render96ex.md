@@ -47,6 +47,9 @@ Installed layout:
 
 `install-render96ex.yml` also runs `desktop_apps`, rendering and installing the
 host application launcher `gaming-render96ex.desktop`.
+`configure-pc-ports.yml` sets its existing external `sm64config.txt` to
+fullscreen with a 3840×2160 window fallback once. It preserves the 60 FPS game
+mode and controller bindings.
 
 The DynOS model pack may still need to be enabled once in-game via Pause → DynOS
 / Model Packs, depending on Render96ex's current defaults.

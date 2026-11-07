@@ -1,0 +1,29 @@
+---
+# Ridge Racer V (USA, SLUS-20002) static recompilation.
+dg_fukami_repo: danisandoval/fukami
+dg_fukami_version: 1.1.0
+dg_fukami_asset_name: "Fukami-{{ dg_fukami_version }}-linux-x86_64.tar.gz"
+dg_fukami_asset_url: "https://github.com/{{ dg_fukami_repo }}/releases/download/v{{ dg_fukami_version }}/{{ dg_fukami_asset_name }}"
+dg_fukami_asset_sha256: 45d4ffe837f3706ca1927389eb1a433f61e19eceeafe2c1357e66815d8d74c1c
+dg_fukami_disc_cue: "{{ dg_rom_heavy_root }}/ps2/Ridge Racer V (USA)/Ridge Racer V (USA).cue"
+dg_fukami_disc_bin: "{{ dg_rom_heavy_root }}/ps2/Ridge Racer V (USA)/Ridge Racer V (USA).bin"
+dg_fukami_cache_dir: "{{ dg_box_home }}/cache/fukami"
+dg_fukami_release_dir: "{{ dg_box_home }}/tools/fukami/releases/{{ dg_fukami_version }}"
+dg_fukami_app_dir: "{{ dg_fukami_release_dir }}/Fukami"
+dg_fukami_launcher: "{{ dg_box_home }}/bin/fukami-rrv"
+dg_fukami_user_dir: "{{ ansible_facts.env.HOME }}/.local/share/Fukami"
+dg_fukami_initial_settings:
+  - { section: display, option: ratio, value: '16:9' }
+  - { section: display, option: window, value: '3840x2160' }
+  - { section: display, option: fullscreen, value: 'true' }
+  - { section: rendering, option: render_mode, value: full }
+  - { section: rendering, option: scale, value: '6' }
+  - { section: rendering, option: aa1, value: 'true' }
+  - { section: rendering, option: aniso, value: '16' }
+  - { section: rendering, option: texture_filter, value: bilinear }
+  - { section: rendering, option: sprite_filter, value: even }
+  - { section: game, option: car_lod, value: '4' }
+  - { section: game, option: draw_distance, value: '2' }
+  - { section: input, option: analog, value: 'true' }
+  - { section: input, option: rumble, value: 'true' }
+  - { section: timing, option: unpaced, value: 'false' }

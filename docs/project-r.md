@@ -10,7 +10,7 @@ installed 2026-09-25 at `v0.7.1`.
 
 Neither game is playable without original assets. Both come from the
 [Project R Assets pack on archive.org](https://archive.org/details/project-r-assets-v-0.6.0.7z)
-(sha1-pinned, kept on the NAS at `ROMS_FINAL/PC/project-r/` and extracted to
+(sha1-pinned, kept on the NAS at `ROMS_FINAL/PC/ports/project-r/` and extracted to
 `assets/` beside it):
 
 - **Rush: The Rock** — `sfrushrk.chd` hard-drive dump + the four audio ROMs
@@ -25,6 +25,14 @@ set up each game, pointing the file dialogs at the extracted assets on the NAS.
 Input is **gamepad/wheel only** — keyboard and mouse are not supported yet, so
 do the setup with the 8BitDo. Setup state + config live in
 `~/.config/ProjectR/project-r.toml` in the box (`[assets.setup_complete]`).
+
+## Display
+
+The port writes `~/.config/ProjectR/project-r.toml` (`[display]`) on first run
+and the in-game menu edits it. It already runs
+`mode = "full_screen_borderless"` with 4× MSAA and 16× anisotropy; the role
+keeps `screen_width`/`screen_height` at **3840×2160** — the port's own default
+was a 2560×1440 window.
 
 ## Install / run / revert
 

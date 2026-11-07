@@ -1,0 +1,114 @@
+---
+- name: Require the SOTC game folder
+  ansible.builtin.stat:
+    path: "{{ dg_sotc_game_dir }}/{{ item }}"
+  loop: [eboot.bin, sce_module, sce_sys]
+  register: _sotc_game
+- ansible.builtin.assert:
+    that: _sotc_game.results | selectattr('stat.exists') | list | length == 3
+    fail_msg: >-
+      SOTC PC needs the CUSA08809/CUSA08034 dump (eboot.bin, sce_module,
+      sce_sys) at dg_sotc_game_dir.
+
+# Self-healing: a staged copy in PC/releases is reused, a missing or corrupt
+# one is fetched from the pinned upstream asset.
+- name: Fetch the pinned SOTC PC build
+  ansible.builtin.get_url:
+    url: "{{ dg_sotc_zip_url }}"
+    dest: "{{ dg_sotc_zip }}"
+    checksum: "sha256:{{ dg_sotc_zip_sha256 }}"
+    mode: "0644"
+
+- name: Create the SOTC PC directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_sotc_release_dir }}"
+    - "{{ dg_box_home }}/bin"
+
+- name: Extract the port into its versioned release directory
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - 7z
+      - x
+      - -y
+      - "-o{{ dg_sotc_release_dir }}"
+      - "{{ dg_sotc_zip }}"
+    creates: "{{ dg_sotc_app_dir }}/SotC.exe"
+
+- name: Keep SOTC user data outside versioned releases
+  ansible.builtin.file:
+    path: "{{ dg_sotc_install_dir }}/user"
+    state: directory
+    mode: "0755"
+
+- name: Link the SOTC release to persistent user data
+  ansible.builtin.file:
+    src: "{{ dg_sotc_install_dir }}/user"
+    dest: "{{ dg_sotc_app_dir }}/user"
+    state: link
+
+- name: Point the port at the game folder and 60 FPS mode
+  ansible.builtin.lineinfile:
+    path: "{{ dg_sotc_app_dir }}/sotc.ini"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    mode: "0644"
+  loop:
+    - { key: SOTC_GAME_DIR, value: 'Z:{{ dg_sotc_game_dir | replace("/", "\\") }}' }
+    - { key: SOTC_MODES, value: fps60 }
+
+# Sound needs two decrypted firmware modules. The box already has a full PS4
+# firmware module set (the shadPS4 tree it uses for GT Sport/DriveClub), so
+# copy them into the port instead of asking the user for a console dump.
+- name: Create the SOTC sound module directory
+  ansible.builtin.file:
+    path: "{{ dg_sotc_app_dir }}/data/sys_modules"
+    state: directory
+    mode: "0755"
+
+- name: Copy the sound modules from the local PS4 firmware set
+  ansible.builtin.copy:
+    src: "{{ dg_ps4_firmware_modules }}/{{ item }}"
+    dest: "{{ dg_sotc_app_dir }}/data/sys_modules/{{ item }}"
+    remote_src: true
+    mode: "0644"
+  loop:
+    - libSceNgs2.sprx
+    - libSceUlt.sprx
+
+- name: Point the port at its own module folder
+  ansible.builtin.lineinfile:
+    path: "{{ dg_sotc_app_dir }}/sotc.ini"
+    regexp: "^# ?SOTC_SYS_MODULES="
+    line: 'SOTC_SYS_MODULES=Z:{{ dg_sotc_app_dir }}/data/sys_modules'
+    mode: "0644"
+
+- name: Install the SOTC PC launcher
+  ansible.builtin.template:
+    src: sotc-pc.sh.j2
+    dest: "{{ dg_sotc_launcher }}"
+    mode: "0755"
+
+- name: Render the SOTC PC desktop entry
+  ansible.builtin.template:
+    src: sotc-pc.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-sotc-pc.desktop"
+    mode: "0644"
+
+- name: Install the SOTC PC host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _sotc_host
+  changed_when: >-
+    'installed ' in _sotc_host.stdout or
+    'removed stale ' in _sotc_host.stdout

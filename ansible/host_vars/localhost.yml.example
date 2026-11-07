@@ -4,6 +4,7 @@
 # UID/GID used inside the container (match your NAS / file-owner uid).
 # dg_host_uid: 1000
 # dg_host_gid: 1000
+# dg_box_username: me  # host account name for the gaming UID
 #
 # Host data/ROM layout. Defaults assume this maintainer's local mounts;
 # point these at your own writable storage and game/BIOS library.
@@ -11,6 +12,33 @@
 # dg_external_games_root: /media/games
 # dg_emudeck_root: "{{ dg_external_games_root }}/EmuDeck"
 # dg_roms_final_root: "{{ dg_external_games_root }}/ROMS_FINAL"
+# Sega Rally 2 needs the original English PC install ISO and play BIN/CUE.
+# The 25th Anniversary executable is not supported by sr2-patcher.
+# dg_sr2_discs_dir: "{{ dg_roms_final_root }}/PC/games/Sega Rally 2 (1999 original PC discs)"
+# Scud Race needs the exact Model 3 scuda.zip and dayto2pe.zip archives.
+# dg_scud_roms: [{source: /path/to/scuda.zip, name: scud.zip, md5: d2d619b0ee5cbf74596431b28080c420},
+#                {source: /path/to/dayto2pe.zip, name: dayto2pe.zip, md5: d05ef348c9be8408ef50ea74dae29f71}]
+# OutRunners needs the verified World MAME ROM archive.
+# dg_or_rom: "{{ dg_roms_final_root }}/arcade/mame/orunners_dup1.zip"
+# NightFire recomp requires the supported original Xbox USA XISO. Update the
+# hash as well if your owned dump is a different byte-for-byte XISO of that game.
+# dg_nf_iso: "{{ dg_roms_final_root }}/xbox/007 - Nightfire (USA)/007 - Nightfire (USA).xiso.iso"
+# dg_nf_iso_sha256: 732868ed01692636f189c015609c5cb4f00f985053af33755a6b1a4e081448f8
+# Code Veronica X HD recomp uses the US NPUB30467 PSN v01.00 base PKG and
+# matching owner-provided RAP license. Override either path for your layout.
+# dg_cv_pkg: "{{ dg_roms_final_root }}/ps3/Code Veronica/NPUB30467.pkg"
+# dg_cv_rap_file: "{{ dg_rpcs3_config_dir }}/dev_hdd0/home/00000001/exdata/UP0102-NPUB30467_00-CONTENT0000DLPKG.rap"
+# dg_cv_game_dir: "{{ dg_rpcs3_dev_hdd0_game }}/NPUB30467"
+# Virtua Fighter 3 Recomp expects the MAME Revision D vf3.zip set.
+# dg_vf3_rom_dir: "{{ dg_roms_final_root }}/arcade/model3"
+# dg_vf3_main_output: DP-1  # preferred 4K display
+# dg_vf3_data_rel: .local/share/vf3-recomp  # save-backup inventory follows this path
+# GT4 Recomp requires an unpatched USA retail SCUS-97328 ISO with the pinned
+# game code. The Spec II SCUS-97436 image is not supported by v1.2.3.
+# dg_gt4r_iso: "{{ dg_roms_final_root }}/ps2/Gran Turismo 4/Gran Turismo 4.iso"
+# dg_gt4r_monitor: '\\.\DISPLAY2'  # Windows GDI display for a 4K landscape monitor
+# 007: The World Is Not Enough (USA) revision 0, byte-swapped N64 dump.
+# dg_twine_rom_source: "{{ dg_roms_final_root }}/n64/007 - The World Is Not Enough (USA).n64"
 # dg_external_usb_games_root: /run/media/me/STEAM
 #
 # OpenSC2K optional installer: an Inno Setup RAR for SimCity 2000 Special
@@ -25,7 +53,12 @@
 # container exists, so `site.yml` needs working host sudo (--ask-become-pass
 # or a NOPASSWD entry) the first time it runs.
 # dg_steam_root: "{{ dg_data_root }}/steam"
+# dg_steam_iscsi_root: /media/me/SteamLibrary  # canonical Steam library mount
 # dg_alyx_novr_steam_library_root: /path/to/SteamLibrary  # contains steamapps/
+# ForzaInfinity online client defaults to its public community server.
+# dg_azimuth_infinity_server: https://infinity.anarqz.dev
+# DriveClub Recomp's US CUSA00093 v1.28 base/update dumps and DLC unlock.
+# dg_dcr_source_root: "{{ dg_roms_final_root }}/ps4/DriveClub (CUSA00093) - v1.28"
 #
 # Roots derived from dg_emudeck_root (override individually only if
 # your layout diverges from EmuDeck's default):
@@ -76,7 +109,7 @@
 # GTA IV mod set (opt-in role install_gta4_mods / --tags gta4_mods). Requires
 # GTA IV Complete Edition (appid 12210, GTAIV.exe 1.2.0.59). Stage the manual
 # Nexus downloads under dg_gta4_staging_root; see docs/gta4-mods.md.
-# dg_gta4_staging_root: "{{ dg_roms_final_root }}/PC/NexusMods/gta4"
+# dg_gta4_staging_root: "{{ dg_roms_final_root }}/PC/mods/NexusMods/gta4"
 # dg_gta4_steam_library_root: /run/media/me/STEAM   # if GTA IV is on a USB lib
 # dg_gta4_steam_localconfig: /home/me/.local/share/Steam/userdata/<steamid>/config/localconfig.vdf
 #
@@ -84,7 +117,7 @@
 # delisted; it defaults to the USB Steam library. The mod (loose camera +
 # realistic tyres) replaces DATA.MIX. See docs/wrc4-mods.md.
 # dg_wrc4_steam_library_root: /run/media/me/STEAM   # if WRC 4 mounts elsewhere
-# dg_wrc4_staging_root: "{{ dg_roms_final_root }}/PC/NexusMods/wrc4"
+# dg_wrc4_staging_root: "{{ dg_roms_final_root }}/PC/mods/NexusMods/wrc4"
 #
 # shadPS4 DLC/addon install dir (kept OUTSIDE the PS4 game tree so
 # ES-DE's .bin scan doesn't pick up addon files as fake games).
@@ -106,6 +139,16 @@
 # SMM2 offline levels (opt-in role install_smm2_levels). Profile UUID is
 # machine-specific: ls <eden>/nand/user/save/0000000000000000/.
 # dg_smm2_eden_profile: <YOUR-EDEN-PROFILE-UUID>
+
+# Optional Lichii Switch 2 experiment: point at your own NUP if it differs
+# from the default filename, and select your SDL controller GUID if needed.
+# dg_lichii_game: "{{ dg_roms_final_root }}/switch2/<YOUR-GAME>.nup"
+# dg_lichii_game_size: <SIZE-IN-BYTES>
+# dg_lichii_controller_guid: <SDL-GUID>
+
+# Host-side save backup location. Override both when the NAS mount differs.
+# dg_save_backup_nas_root: /mnt/your-nas/restic
+# dg_save_backup_nas_mount: /mnt/your-nas
 # dg_smm2_levels_max_uploaded: "2019-10-01"   # "" once game updated to 3.x
 #
 # SDL controller allow-list for the pc-racing games (comma-separated
@@ -114,8 +157,14 @@
 # dg_pc_racing_gamepad_only: "0x2dc8/0x310b,0x045e/0x0b12"
 #
 # Staging root for the pc-racing installers (CMR 2.0/2/3/04, OutRun 2006,
-# Sega Rally 2/Revo, Sonic P-06) — CD extracts / repacks you source yourself.
-# dg_pc_racing_source_root: "{{ dg_roms_final_root }}/PC"
+# Sega Rally 2/Revo) — CD extracts / repacks you source yourself.
+# dg_pc_racing_source_root: "{{ dg_roms_final_root }}/PC/games"
+#
+# DriveClub Recomp (opt-in): requires the US CUSA00093 v1.28 dump. The default
+# shadPS4 game is EU CUSA00003 and cannot be used by this recomp release.
+# dg_dcr_base_dir: "{{ dg_ps4_rom_root }}/CUSA00093"
+# dg_dcr_update_dir: "{{ dg_dcr_base_dir }}"  # merged v1.28 dump
+# dg_dcr_proton: "{{ dg_azimuth_proton }}"
 #
 # Sonic Unleashed Recomp source staging (opt-in install-unleashed-recomp.yml
 # / --tags unleashed_recomp). Empty by default — no reliable public URL, you
@@ -169,8 +218,31 @@
 # if the untouched PC game data is not at dg_pc_racing_source_root's default.
 # dg_opencmr2_game_data: "/path/to/Colin McRae Rally 2"
 # dg_gow3_pc_game_dir: "/path/to/CUSA01623"  # contains eboot.bin and sce_module/
+# dg_rygt_game_dir: "{{ dg_ps4_rom_root }}/CUSA03220"  # decrypted GT Sport base + 1.69 backport
+# dg_rygt_font2_source: "{{ dg_box_home }}/.local/share/shadPS4/sys_fonts/font2"
+# dg_rygt_release_dir: "{{ dg_rom_rare_root }}/ps4-ports/rygt/releases/{{ dg_rygt_release_tag }}"
+# dg_rsc2_iso: "{{ dg_rom_heavy_root }}/xbox/RalliSport Challenge 2 (World) (En,Ja,Fr,De,Es,It).iso"
+# dg_rsc2_game_dir: "{{ dg_roms_final_root }}/xbox/RalliSport Challenge 2 (World) (extracted)"
+# dg_rsc2_scale: 6
+# dg_rsc2_fps_limit: 120
+# dg_mdc_roms:  # three exact Genesis dumps; defaults mix dg_rom_root and dg_roms_final_root
+#   - { src: "/path/to/Castle of Illusion USA.md", sha256: "...", dest: "Castle.md" }
+# dg_mdc_widescreen: 2  # 16:9; 4 selects 21:9 for the games that support it
+# dg_mdc_vsync: true
 # dg_azimuth_game_dir: "/path/to/Anthem_1.0.0.64_x64__8wekyb3d8bbwe"
 # dg_azimuth_proton: "/path/to/GE-Proton/proton"
+# dg_nebula_game_image: "/path/to/Super Mario Galaxy (USA) (En,Fr,Es).iso"  # RMGE01 revision 0; NKit accepted
+# dg_nebula_compile_jobs: 4
+# dg_dekui_rom: "/path/to/decrypted/Majora's Mask 3D USA Rev 1.cci"
+# dg_dekui_controller_guid: "your-SDL-controller-GUID"
+# dg_dekui_resolution_factor: 10
+# dg_fukami_disc_cue: "/path/to/Ridge Racer V (USA).cue"
+# dg_fukami_disc_bin: "/path/to/Ridge Racer V (USA).bin"
+# PC port display baseline (configure-pc-ports.yml, after first launch creates
+# each game's settings file). Defaults match a 3840x2160 display and RTX 5090.
+# dg_pc_port_target_width: 3840
+# dg_pc_port_target_height: 2160
+# dg_pc_port_unleashed_fps: 120
 
 # Atari 2600/5200/7800/Lynx/800 ES-DE systems (off by default; see docs/atari.md).
 # Enable, then re-run configure_esde (site.yml --tags esde).
@@ -181,3 +253,6 @@
 # dg_atari_st_enabled: true
 # dg_atari_st_rom_dir: "{{ dg_rom_root }}/atarist"
 # dg_atari_st_tos_source: "{{ dg_bios_root }}/tos.img"
+# REA Colin McRae Rally: override if the original PC v1.5 game is elsewhere.
+# dg_cmr1_source_dir: "{{ dg_roms_final_root }}/PC/games/CMRally"
+# dg_cmr1_rally_sha256: "46500c8e22ce3e943b6855eca63ae9288261162347ca76fa36cad77cbb19c0bb"

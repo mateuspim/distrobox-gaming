@@ -2,13 +2,13 @@
 
 [ThatGuyMcd/DKR-R](https://github.com/ThatGuyMcd/DKR-R) is an **N64Recomp +
 N64ModernRuntime + RT64 static recomp** PC port of Diddy Kong Racing. Opt-in
-role; installed 2026-09-28 at `1.0.5-beta.10`.
+role; updated 2026-10-23 to stable `1.0.8`.
 
 ## Native Linux AppImage
 
 Upstream ships a **native Linux x86-64 AppImage** — RT64 renders through
 **Vulkan** directly, so no Wine. The role hash-pins the release AppImage on
-the NAS (`ROMS_FINAL/PC/dkr-r/`) and copies it (version-gated via
+the NAS (`ROMS_FINAL/PC/ports/dkr-r/`) and copies it (version-gated via
 `.dg-installed-ref`) to `tools/dkr-r` in the box. Runtime dep: `fuse2` for the
 AppImage (installed by the role).
 

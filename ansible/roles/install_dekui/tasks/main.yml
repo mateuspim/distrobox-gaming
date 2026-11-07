@@ -1,0 +1,142 @@
+---
+- name: Check the Majora's Mask 3D game card
+  ansible.builtin.stat:
+    path: "{{ dg_dekui_rom }}"
+  register: _dekui_rom
+
+- name: Require the owned game card
+  ansible.builtin.assert:
+    that: _dekui_rom.stat.isreg | default(false)
+    fail_msg: Set dg_dekui_rom to a decrypted Majora's Mask 3D USA v1.1 .cci or .3ds game-card image.
+
+- name: Create DekUI cache, install and launcher directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_dekui_cache_dir }}"
+    - "{{ dg_dekui_root }}"
+    - "{{ dg_box_home }}/bin"
+
+- name: Download the pinned DekUI Linux release
+  ansible.builtin.get_url:
+    url: "{{ dg_dekui_asset_url }}"
+    dest: "{{ dg_dekui_cache_dir }}/{{ dg_dekui_asset_name }}"
+    checksum: "sha256:{{ dg_dekui_asset_sha256 }}"
+    mode: "0644"
+
+- name: Check the installed DekUI version marker
+  ansible.builtin.stat:
+    path: "{{ dg_dekui_root }}/.dg-installed-{{ dg_dekui_version }}"
+  register: _dekui_marker
+
+- name: Extract DekUI without touching persistent user data
+  ansible.builtin.unarchive:
+    src: "{{ dg_dekui_cache_dir }}/{{ dg_dekui_asset_name }}"
+    dest: "{{ dg_dekui_root }}"
+    remote_src: true
+    creates: "{{ dg_dekui_root }}/.dg-installed-{{ dg_dekui_version }}"
+
+- name: Mark the installed DekUI release
+  ansible.builtin.file:
+    path: "{{ dg_dekui_root }}/.dg-installed-{{ dg_dekui_version }}"
+    state: touch
+    mode: "0644"
+  when: not _dekui_marker.stat.exists
+
+- name: Probe the game card with DekUI's own read-only checker
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ dg_dekui_app_dir }}/tools/mm3d/probe_rom.py"
+      - "{{ dg_dekui_rom }}"
+  register: _dekui_probe
+  changed_when: false
+
+- name: Require DekUI's supported USA Rev 1 game partition
+  ansible.builtin.assert:
+    that:
+      - (_dekui_probe.stdout | from_json).program_id == '0004000000125500'
+      - (_dekui_probe.stdout | from_json).remaster_version == 2
+      - (_dekui_probe.stdout | from_json).no_crypto_flag | bool
+      - (_dekui_probe.stdout | from_json).main_partition_sha256 == dg_dekui_rom_partition_sha256
+    fail_msg: The game card does not match DekUI's supported decrypted USA Rev 1 image.
+
+- name: Copy the verified game card beside DekUI for in-place setup
+  ansible.builtin.copy:
+    src: "{{ dg_dekui_rom }}"
+    dest: "{{ dg_dekui_app_dir }}/Majoras-Mask-3D-USA-Rev1.cci"
+    remote_src: true
+    mode: "0644"
+
+- name: Check DekUI's first-run settings and baseline marker
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ dg_dekui_user_dir }}/config/qt-config.ini"
+    - "{{ dg_dekui_user_dir }}/.dg-initial-settings"
+  register: _dekui_settings_files
+
+- name: Read DekUI's controller profiles
+  ansible.builtin.slurp:
+    src: "{{ dg_dekui_user_dir }}/config/qt-config.ini"
+  register: _dekui_settings
+  when: _dekui_settings_files.results[0].stat.isreg | default(false)
+
+- name: Set DekUI's initial 4K-class resolution
+  community.general.ini_file:
+    path: "{{ dg_dekui_user_dir }}/config/qt-config.ini"
+    section: Renderer
+    option: resolution_factor
+    value: "{{ dg_dekui_resolution_factor }}"
+    mode: "0644"
+  when:
+    - _dekui_settings_files.results[0].stat.isreg | default(false)
+    - not _dekui_settings_files.results[1].stat.exists
+
+- name: Select the matching DekUI gamepad profile
+  community.general.ini_file:
+    path: "{{ dg_dekui_user_dir }}/config/qt-config.ini"
+    section: Controls
+    option: profile
+    # The config stores a zero-based index; profiles\\2 is index 1.
+    value: '1'
+    mode: "0644"
+  when:
+    - _dekui_settings_files.results[0].stat.isreg | default(false)
+    - not _dekui_settings_files.results[1].stat.exists
+    - dg_dekui_controller_guid in (_dekui_settings.content | b64decode)
+
+- name: Record DekUI's initial graphics and controller baseline
+  ansible.builtin.file:
+    path: "{{ dg_dekui_user_dir }}/.dg-initial-settings"
+    state: touch
+    mode: "0644"
+  when:
+    - _dekui_settings_files.results[0].stat.isreg | default(false)
+    - not _dekui_settings_files.results[1].stat.exists
+    - dg_dekui_controller_guid in (_dekui_settings.content | b64decode)
+
+- name: Install DekUI launcher
+  ansible.builtin.template:
+    src: dekui-mm3d.sh.j2
+    dest: "{{ dg_dekui_launcher }}"
+    mode: "0755"
+
+- name: Render DekUI desktop entry
+  ansible.builtin.template:
+    src: dekui-mm3d.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-dekui-mm3d.desktop"
+    mode: "0644"
+
+- name: Install DekUI host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _dekui_host_launchers
+  changed_when: >-
+    'installed ' in _dekui_host_launchers.stdout or
+    'removed stale ' in _dekui_host_launchers.stdout

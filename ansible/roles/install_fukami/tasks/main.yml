@@ -1,0 +1,116 @@
+---
+- name: Check the Ridge Racer V disc files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ dg_fukami_disc_cue }}"
+    - "{{ dg_fukami_disc_bin }}"
+  register: _fukami_disc_files
+
+- name: Require the USA cue and bin pair
+  ansible.builtin.assert:
+    that:
+      - _fukami_disc_files.results | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg') | list | length == 2
+    fail_msg: Set dg_fukami_disc_cue and dg_fukami_disc_bin to the owned Ridge Racer V (USA) cue/bin pair.
+
+- name: Verify the cue references the configured bin
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        from pathlib import Path
+        import re
+        import sys
+        cue = Path(sys.argv[1])
+        bin_path = Path(sys.argv[2])
+        content = cue.read_text(encoding='utf-8-sig')
+        files = re.findall(r'^FILE\s+"([^"]+)"\s+BINARY\s*$', content, re.I | re.M)
+        if len(files) != 1 or (cue.parent / files[0]).resolve() != bin_path.resolve():
+            raise SystemExit('Fukami requires a cue referencing the configured bin')
+      - "{{ dg_fukami_disc_cue }}"
+      - "{{ dg_fukami_disc_bin }}"
+  changed_when: false
+
+- name: Create Fukami cache, release and launcher directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_fukami_cache_dir }}"
+    - "{{ dg_fukami_release_dir }}"
+    - "{{ dg_box_home }}/bin"
+
+- name: Download the pinned Fukami Linux release
+  ansible.builtin.get_url:
+    url: "{{ dg_fukami_asset_url }}"
+    dest: "{{ dg_fukami_cache_dir }}/{{ dg_fukami_asset_name }}"
+    checksum: "sha256:{{ dg_fukami_asset_sha256 }}"
+    mode: "0644"
+
+- name: Extract Fukami into its versioned release directory
+  ansible.builtin.unarchive:
+    src: "{{ dg_fukami_cache_dir }}/{{ dg_fukami_asset_name }}"
+    dest: "{{ dg_fukami_release_dir }}"
+    remote_src: true
+    creates: "{{ dg_fukami_app_dir }}/bin/Fukami"
+
+- name: Create Fukami user data directory
+  ansible.builtin.file:
+    path: "{{ dg_fukami_user_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Seed Fukami settings if the game has not created them
+  ansible.builtin.copy:
+    src: "{{ dg_fukami_app_dir }}/share/fukami-default.ini"
+    dest: "{{ dg_fukami_user_dir }}/fukami.ini"
+    remote_src: true
+    force: false
+    mode: "0644"
+
+- name: Check whether the initial Fukami baseline was applied
+  ansible.builtin.stat:
+    path: "{{ dg_fukami_user_dir }}/.dg-initial-settings"
+  register: _fukami_settings_marker
+
+- name: Set Fukami's initial 4K-class graphics and gamepad baseline
+  community.general.ini_file:
+    path: "{{ dg_fukami_user_dir }}/fukami.ini"
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    mode: "0644"
+  loop: "{{ dg_fukami_initial_settings }}"
+  when: not _fukami_settings_marker.stat.exists
+
+- name: Record that Fukami's initial baseline was applied
+  ansible.builtin.file:
+    path: "{{ dg_fukami_user_dir }}/.dg-initial-settings"
+    state: touch
+    mode: "0644"
+  when: not _fukami_settings_marker.stat.exists
+
+- name: Install Fukami launcher
+  ansible.builtin.template:
+    src: fukami-rrv.sh.j2
+    dest: "{{ dg_fukami_launcher }}"
+    mode: "0755"
+
+- name: Render Fukami desktop entry
+  ansible.builtin.template:
+    src: fukami-rrv.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-fukami-rrv.desktop"
+    mode: "0644"
+
+- name: Install Fukami host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _fukami_host_launchers
+  changed_when: >-
+    'installed ' in _fukami_host_launchers.stdout or
+    'removed stale ' in _fukami_host_launchers.stdout

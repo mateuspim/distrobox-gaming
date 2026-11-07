@@ -1,0 +1,12 @@
+---
+- name: Apply one-time PC port graphics and input defaults when its config exists
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ dg_project_root }}/scripts/seed-pc-port-json.py"
+      - "{{ dg_pc_port_json_path }}"
+      - "{{ dg_pc_port_json_marker | default((dg_pc_port_json_path | dirname) ~ '/.dg-display-input-baseline') }}"
+  environment:
+    DG_PC_PORT_JSON_DEFAULTS: "{{ dg_pc_port_json_defaults | to_json }}"
+  register: _dg_pc_port_json_seed
+  changed_when: "'applied PC port defaults' in _dg_pc_port_json_seed.stdout"

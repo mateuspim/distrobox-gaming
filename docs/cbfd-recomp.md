@@ -3,13 +3,16 @@
 [sciaschi/CBFD-Recompiled](https://github.com/sciaschi/CBFD-Recompiled) is an
 **N64Recomp + N64ModernRuntime + RT64 static recomp** PC port of Conker's Bad
 Fur Day (US), built from the [mkst/conker](https://github.com/mkst/conker)
-decompilation. Opt-in role; installed 2026-09-28 at `V0.1.4`.
+decompilation. Opt-in role; updated 2026-10-23 to `V0.1.6` (save states,
+achievements, graphics and crash fixes). The role now checks an installed
+version marker before extracting a newer build; config and saves stay in
+`dg_cbfd_config_dir`.
 
 ## Native Linux (like Pilotwings, unlike Wave Race)
 
 Upstream ships a **native Linux x86-64 build** — RT64 renders through
 **Vulkan** directly, so no Wine. The role hash-pins the release tarball on the
-NAS (`ROMS_FINAL/PC/cbfd-recomp/`) and extracts it to `tools/cbfd-recomp` in
+NAS (`ROMS_FINAL/PC/ports/cbfd-recomp/`) and extracts it to `tools/cbfd-recomp` in
 the box. Runtime deps per `ldd` on the binary: `sdl2 vulkan-icd-loader
 freetype2 dbus` (installed by the role).
 
@@ -30,6 +33,14 @@ anyway, verifies the sha1, and keeps the `.z64` next to the tarball. Asset-only
 ROM hacks (e.g. an uncensored patch) also work — load them via the launcher's
 **Add ROM**; code-changing hacks and other regions are refused upstream.
 
+## Graphics
+
+`graphics.json` in the config dir is the port's own settings file (also editable
+from its in-game menu). The role pins `msaa_option` to **MSAA8X**, the top of the
+2X/4X/8X set it offers; `res_option=Auto` already follows the fullscreen window,
+and `wm_option=Fullscreen` / `ar_option=Expand` give fullscreen widescreen. The
+high-precision-framebuffer option (`hpfb_option`) stays at the port's default.
+
 ## Install / run / revert
 
 ```sh
@@ -46,8 +57,7 @@ nvidia and focuses DP-1. Settings, saves and loaded ROM versions live in
 `~/.config/ConkerRecompiled` inside the box.
 
 Verified 2026-09-28 on the box: RTX 5090 Vulkan device detected, 8BitDo
-controller picked up via SDL, ROM imported and the game booted. Known upstream
-Linux caveat at V0.1.4: upstream tested Linux only under WSL with software
-Vulkan, so real-driver quirks are possible (none seen in the smoke test).
+controller picked up via SDL, ROM imported and the game booted at V0.1.4.
+The V0.1.6 update still needs a hands-on game check.
 Default keyboard: WASD = stick, Space = A, Left Shift = B, Q = Z, E/R = L/R,
 Enter = Start, arrows = C buttons, IJKL = D-pad — remappable in Controls.

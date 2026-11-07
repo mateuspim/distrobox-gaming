@@ -1,0 +1,37 @@
+# Gran Turismo Sport through RyGT
+
+The pinned [2026-10-22 prerelease](https://github.com/mlgprorektm8/RyGT/releases/tag/gt-sport-2026-10-22) adds launcher, rendering and shader fixes. Its versioned release directory preserves the prior install; the role copies missing saves and settings from the 2026-10-15 `user/` directory without overwriting the new release defaults. Upstream calls for Proton 10 or newer on Linux; this Wine setup still needs an interactive launch check.
+
+The current converter writes `GTSport.exe` and hard-links the game volumes, then leaves the launcher open under Wine. The role ends that setup session after two minutes and checks for the converted executable and both volume/index links before continuing; the 2026-10-15 release remains available for rollback.
+
+Run `ansible-playbook install-rygt.yml` from `ansible/` for this optional install. It uses the decrypted CUSA03220 game with update 1.69, the PS4 firmware modules already used by shadPS4, and the owned firmware fonts. Override `dg_rygt_game_dir`, `dg_ps4_firmware_modules`, or `dg_rygt_font2_source` in `host_vars/localhost.yml` for another layout. The role downloads the pinned RyGT release and converts the game once in a dedicated Wine prefix. It keeps RyGT beside the game on the same filesystem so the converter can hard-link the large `gt*.vol` files rather than copy them. Saves and user settings stay in RyGT's `user/` directory.
+
+The local 1.69 backport's `sce_sys/param.sfo` reports `APP_VER=01.00` and has no title name. The role supplies a small 1.69 update overlay for RyGT's setup check, then provides `param.json` in RyGT's own `app0/sce_sys` view. It does not change the original game dump. The converter's Windows junction for `sce_sys` does not materialize on this NAS; the role replaces the empty junction with symlinks to the original files. A short Wine launch test advanced into Vulkan rendering after this repair; menus, racing, performance, and actual controller input still need interactive verification.
+
+RyGT renders the game internally at 1920×1080. Its packaged per-game config enables AMD FSR upscaling and sharpening for larger windows. Use F11 to make the game fullscreen on a 4K display; the internal game render remains 1080p. The packaged FPS counter is enabled. The upstream status reports about 42–60 gameplay FPS in races, and the config does not expose a safe independent FPS cap. This is an upstream performance report, not a measured result on this machine. Do not force an unpaced frame rate. RyGT supports SDL-mapped Xbox and PlayStation pads natively, including sticks, triggers, D-pad and standard buttons; it uses the first recognized controller. No pad was connected during this install, so input was not verified in game.
+
+The local `ROMS_FINAL/ps4` collection has the CUSA03220 base PKG and 1.69 patch PKG, with no separate GT Sport DLC PKG. The extracted game and `ps4-addons` likewise have no CUSA03220 add-on. The release NFO's mention of add-ons is not proof that DLC packages are present. RyGT's current `sceAppContentAddcontMount` is unimplemented and `sceAppContentGetAddcontInfoList` always returns zero, so this release cannot mount separate DLC even if acquired later. Keep DLC PKGs separate until the port implements add-on content.
+
+**Upstream is gone (2026-10-27).** `github.com/mlgprorektm8/RyGT` returns
+HTTP 404 — the repository was deleted, with no successor found on GitHub. The
+pinned `gt-sport-2026-10-22` release installed here keeps working, but there
+are no further updates and the release sweep now reports it as `GONE` instead
+of an API error. Do not delete the installed tree; it is the only copy.
+
+Upstream: [RyGT](https://github.com/mlgprorektm8/RyGT), [GT Sport setup/status](https://github.com/mlgprorektm8/RyGT/blob/main/docs/gt-sport/README.md), [controller mapping](https://github.com/mlgprorektm8/RyGT/blob/main/docs/user/INPUT_MAPPING.md), [add-on content implementation](https://github.com/mlgprorektm8/RyGT/blob/main/core/libs/prx/libSceAppContent/Export.cpp).
+
+## Launcher
+
+`bin/rygt-gt-sport` is re-entrant: started on the host it re-execs inside the
+gaming distrobox (Wine exists only there); started inside the box it runs Wine
+directly. The Walker entry calls the script itself — never wrap it in
+`distrobox-enter` again, the nested call does not exist inside the box (see
+AGENTS.md, "Wine runs inside the box"; `scripts/check-launcher-wrappers.sh`
+guards the whole set).
+
+The game is an **ImGui windowed app**, not a real fullscreen game: its main
+window size comes from `user/imgui.ini` (saved on exit). A layout saved
+portrait — the second monitor here — leaves a small window that looks like a
+failed launch; the role repairs portrait sizes to `dg_rygt_display_size`
+(3840x2160) and a Hyprland rule pins the window to DP-1. Forcing Hyprland
+fullscreen instead makes it resize-fight the ImGui layout.

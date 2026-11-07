@@ -1,0 +1,11 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Gran Turismo Sport · RyGT (on {{ dg_box_name }})
+Exec={{ dg_rygt_launcher }}
+Terminal=false
+Type=Application
+Icon=applications-games
+Comment=Gran Turismo Sport PC port using owned PS4 game files.
+Categories=Game;
+Keywords=gran turismo;sport;rygt;ps4;port;
+{{ ogm_metadata('gaming-rygt-gt-sport') }}

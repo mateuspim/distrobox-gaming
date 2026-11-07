@@ -6,6 +6,8 @@
 # See docs/dude.md.
 
 dg_dude_repo: "https://github.com/Inkub0/dude.git"
+dg_dude_version: v0.9.7
+dg_dude_ref: e703ab270064eef8ead6ae3abbb4b0762bddecd8
 dg_dude_src: "{{ dg_box_home }}/tools/dude-src"
 dg_dude_build: "{{ dg_dude_src }}/build"
 dg_dude_vulkan: true                 # build the Vulkan 1.4 backend (RTX 5090)
@@ -19,6 +21,6 @@ dg_dude_packages: [cmake, gcc, sdl2, openal, vulkan-headers, vulkan-icd-loader, 
 dg_dude_doom3_search_paths:
   - "{{ ansible_facts.env.HOME }}/.local/share/Steam/steamapps/common/Doom 3"
   - "/mnt/data/steam/steamapps/common/Doom 3"
-  - "{{ dg_roms_final_root }}/PC/Doom 3"
+  - "{{ dg_roms_final_root }}/PC/games/Doom 3"
   # removable Steam drives are also globbed by the launcher, e.g.
   # /run/media/<user>/STEAM/steamapps/common/Doom 3 (where classic Doom 3 lives here).

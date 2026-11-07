@@ -31,6 +31,14 @@ Use this when recreating the gaming distrobox from scratch.
    ansible-playbook site.yml
    ```
 
+   After package bootstrap, `migrate_box` replaces the privileged setup
+   Distrobox with a restricted container under the same `gaming` name. The
+   original (the privileged Distrobox) is removed once normal play is verified;
+   no game data is moved, and later container changes are applied with
+   `-e dg_box_recreate=true`. The
+   canonical Steam library mount (`dg_steam_iscsi_root`) and Emulators mount
+   must be present before migration. See [runtime security](game-runtime-security.md).
+
 5. Optional: install Xenia Manager:
 
    ```sh
@@ -55,6 +63,7 @@ Use this when recreating the gaming distrobox from scratch.
 ansible-playbook site.yml --tags check       # validate host paths and UID/GID
 ansible-playbook site.yml --tags create      # create the distrobox
 ansible-playbook site.yml --tags bootstrap   # install packages
+ansible-playbook migrate-gaming-box.yml       # migrate an existing privileged box
 ansible-playbook site.yml --tags shadps4     # install/update shadPS4
 ansible-playbook site.yml --tags hedgemodmanager # install/update Hedge Mod Manager
 ansible-playbook site.yml --tags pc_racing   # optional Windows PC racing setup
@@ -62,12 +71,15 @@ ansible-playbook site.yml --tags m2emulator  # optional Sega Model 2 Emulator (W
 ansible-playbook install-model1.yml          # optional Sega Model 1 (Wanszai + MAME)
 ansible-playbook install-sega-rally.yml      # optional Sega Rally HD (Wanszai, Model 2)
 ansible-playbook site.yml --tags sonic_p06   # optional Sonic Project '06 setup
+ansible-playbook configure-pc-ports.yml      # after optional PC ports have created settings files
 ansible-playbook site.yml --tags configure   # apply configs, desktop entries, ES-DE
 ansible-playbook site.yml --tags verify      # post-setup assertions
 ```
 
 `configure` renders desktop entries only. Run `scripts/install-host-launchers.sh`
 from the repository root on the host to install or refresh Walker menu entries.
+The PC port settings sweep is one-time per installed port and preserves later
+in-game changes; see [PC port display and controller baseline](pc-port-settings.md).
 
 ### NexusMods mod-set roles (per-game, opt-in)
 
@@ -79,9 +91,9 @@ or `site.yml --tags <name>`. **`docs/nexusmods.md` is the authoritative inventor
 (what each installs, per-game status, deferred/GUI-tool items, save-mod placement,
 and the Proton gotchas + their fixes: the Rockstar-Launcher install-script hang,
 MGS3 GE-Proton cutscene audio, MGSHDFix settings self-heal). Downloaded loaders/
-tools are preserved under `ROMS_FINAL/PC/NexusMods/_loaders/` and reused on
+tools are preserved under `ROMS_FINAL/PC/mods/NexusMods/_loaders/` and reused on
 rebuild (no re-download). Their per-game Nexus mods are under
-`ROMS_FINAL/PC/NexusMods/<game>/`.
+`ROMS_FINAL/PC/mods/NexusMods/<game>/`.
 
 ### Resetting configs without rebuilding
 
@@ -155,7 +167,7 @@ bind mount are untouched.
 
   It's safe (never overwrites a save already present). See
   [docs/save-backups.md](save-backups.md). Get in the habit of running
-  `distrobox enter gaming -- bash -lc '$HOME/bin/backup-saves'` periodically
+  `~/.local/bin/backup-saves` on the host periodically
   so this backup is current.
 - **Standalone installer playbooks.** 30 `ansible/install-*.yml`
   playbooks exist outside `site.yml`, one role each, for the
@@ -208,7 +220,7 @@ managed by their own roles, so update them explicitly:
 
 ```sh
 # 1. System + AUR + RetroArch cores/assets (inside the box)
-distrobox enter gaming -- ~/bin/update-gaming          # add --skip-cores --skip-assets for a quick pkg-only pass
+distrobox enter gaming -- sh -lc '~/bin/update-gaming'  # add --skip-cores --skip-assets inside the quoted command for a quick pkg-only pass
 
 # 2. Catch AUR soname breakage + Xenia Wine-DPI drift (host). Rebuild anything
 #    it flags from source with makepkg -srci (NOT yay -S).
@@ -239,6 +251,14 @@ running" guard can false-trip on the refresh's own AppImage probe — the binary
 still updates; the guard refuses *before* editing `config.toml`, so nothing is
 left half-written. Re-run `reset-configs.yml --tags configs` while idle if you
 want the config re-seeded.
+After activating a QtLauncher release, the role deletes obsolete downloaded
+QtLauncher ZIPs. It keeps extracted older releases for rollback and retains
+the active download for a repeatable rerun.
+
+Sweep statuses: `CURRENT`, `CANDIDATE`, `REVIEW` (no pin resolved), `SOURCE`
+(built from source at a pinned commit — nothing to compare), `AUTO` (role
+installs upstream latest on purpose), `GONE` (upstream repo deleted; installed
+copy kept), `NO_RELEASE`, `ERROR`.
 
 The game sweep checks every rendered `port`, `decomp`, `recomp`, `fangame`,
 `wine`, and `arcade` entry with `X-OGM-GitHub`. It reads pinned versions from
@@ -249,8 +269,15 @@ repository publishes no matching GitHub release, and `ERROR` needs a retry.
 For source checkouts and auto-updating installers, `REVIEW` is intentionally
 manual because a GitHub release tag alone cannot establish the installed
 revision. Update each candidate through its focused playbook after checking
-Linux/Windows assets, checksums, and the game's setup notes. GitHub Actions
-artifacts, non-GitHub downloads, and mods are outside this release check.
+Linux/Windows assets, checksums, and the game's setup notes. For every new
+GitHub release, also read the release notes and changed upstream configuration
+guidance. Compare new performance switches, graphics/FPS and frame-pacing
+defaults, cache handling, and controller fixes with our role; apply useful,
+safe changes as `dg_*` values or tasks, update the game documentation, and
+verify a second playbook run reports no unexpected changes. Do this for
+GitHub-backed emulators as well as games, including self-updating roles.
+GitHub Actions artifacts, non-GitHub downloads, and mods are outside this
+release check.
 
 ## Safety
 

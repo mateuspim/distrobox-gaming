@@ -10,7 +10,7 @@ Recompiled). Opt-in role; installed 2026-09-24 at `v0.1.1`.
 Upstream ships a **native Linux x86-64 build** of the whole game — RT64 renders
 through **Vulkan** directly, so there is no reason for the Wine +
 vkd3d-proton path we use for Wave Race 64. The role hash-pins the release
-tarball on the NAS (`ROMS_FINAL/PC/pilotwings-recomp/`) and extracts it to
+tarball on the NAS (`ROMS_FINAL/PC/ports/pilotwings-recomp/`) and extracts it to
 `tools/pilotwings-recomp` in the box. Runtime deps per `README-LINUX.txt`:
 `sdl2 vulkan-icd-loader gtk3 freetype2` (installed by the role).
 
@@ -27,6 +27,13 @@ a big-endian `.z64` (kept next to the tarball on the NAS) and the binary's
 `--identify` confirms "This dump matches the pinned target." The recompiled
 binary is distributed prebuilt; the ROM supplies the original assets at
 runtime.
+
+## Graphics
+
+`~/.local/share/Pilotwings64Recomp/graphics.json` is the port's settings file.
+The role pins `msaa_option` to **MSAA8X** (top of its 2X/4X/8X set);
+`res_option=Auto` follows the fullscreen window and `ar_option=Expand` gives the
+widescreen HUD-at-the-edges presentation.
 
 ## Install / run / revert
 

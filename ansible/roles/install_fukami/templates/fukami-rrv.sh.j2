@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -eu
+cd "{{ dg_fukami_app_dir }}"
+data_home=${XDG_DATA_HOME:-"$HOME/.local/share"}
+if [ -f "$data_home/Fukami/disc/.fukami-disc-verified" ]; then
+  exec ./Fukami "$@"
+fi
+exec ./Fukami "{{ dg_fukami_disc_cue }}" "$@"

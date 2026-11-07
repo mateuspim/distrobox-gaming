@@ -1,13 +1,13 @@
 ---
 # Save-data backup/restore configuration.
 #
-# `dg_backup_root` is where the box's emulator + PC-port save data is mirrored
-# on the NAS (one subdir per set, named by `name`). Override in
-# host_vars/localhost.yml if your NAS layout differs.
+# dg_backup_root is where host-side helpers mirror emulator and PC-port saves
+# on the NAS (one subdir per set). The game runtime does not need write access
+# to this mount. Override both NAS paths in host_vars/localhost.yml if needed.
 #
 # `dg_save_sets` is the data-driven inventory of what to back up. Each entry:
 #   name : unique label -> becomes the backup subdir (no spaces)
-#   src  : path RELATIVE TO the box $HOME of a directory holding save data
+#   src  : path RELATIVE TO dg_box_home of a directory holding save data
 # The backup-saves / restore-saves helpers (role backup_saves) iterate this
 # list; a src that doesn't exist locally is silently skipped, so it's safe to
 # list a save dir a game only creates once you've played it.
@@ -20,6 +20,7 @@
 # capacity: the QNAP pool was ~85 TB used while the new Synology pool was
 # nearly empty. The restic machine repos live beside it.
 dg_save_backup_nas_root: /mnt/gigachad/restic
+dg_save_backup_nas_mount: /mnt/gigachad
 
 dg_backup_root: "{{ dg_save_backup_nas_root }}/dg-save"
 
@@ -48,9 +49,19 @@ dg_save_sets:
   - { name: azahar-nand,          src: ".local/share/azahar-emu/nand" }
   - { name: melonds,              src: ".config/melonDS" }
   - { name: eden-saves,           src: ".local/share/eden/nand/user/save" }
+  - { name: lichii-saves,         src: "tools/lichii/profile/data/eden/nand/user/save" }
+  - { name: lichii-system-save,   src: "tools/lichii/profile/data/eden/nand/system/save" }
   - { name: cemu,                 src: ".local/share/Cemu" }
-  - { name: shadps4-savedata,     src: ".local/share/shadPS4/savedata" }
+  - { name: shadps4-savedata,     src: ".local/share/shadPS4/home" }   # per-user <uid>/savedata lives under home/
   - { name: supermodel-nvram,     src: ".supermodel/NVRAM" }
+  - { name: dolphin-gba-saves,    src: ".local/share/dolphin-emu/GBA/Saves" }
+  - { name: rpcs3-savedata,       src: ".config/rpcs3/dev_hdd0/savedata" }
+  - { name: kytyps5-savedata,     src: "tools/kytyps5/user/_SaveData" }
+  - { name: code-veronica-recomp, src: "tools/code-veronica-recomp/user/gamedata" }
+  - { name: eden-system-save,     src: ".local/share/eden/nand/system/save" }
+  - { name: model1-nvram,         src: ".local/share/mame-model1" }
+  - { name: mame-neogeo-nvram,    src: ".mame/nvram/neogeo" }
+  - { name: mame-neocd-nvram,     src: ".mame/nvram/neocdz" }
   # Xenia: whole content tree (per-title 00000001 = savegames, plus installed
   # TUs/DLC; the big FM DLC entries are symlinks and stay symlinks under -a).
   - { name: xenia-content,        src: "tools/xenia-manager/current/Emulators/Xenia Canary/content" }
@@ -59,10 +70,32 @@ dg_save_sets:
   - { name: soh-save,             src: "tools/ship-of-harkinian/current/Save" }
   - { name: lighthouse-save,      src: "tools/lighthouse/current/Save" }
   - { name: 2ship-save,           src: "tools/2ship2harkinian/current/Save" }
-  - { name: starship-save,        src: "tools/starship/current/Save" }
-  - { name: spaghettikart-save,   src: "tools/spaghettikart/current/Save" }
+  - { name: starfox64-recomp,     src: ".config/Starfox64Recompiled/saves" }  # Star Fox 64 Recompiled EEPROM saves (N64Recomp app folder; ROM/install re-derived on rebuild)
+  - { name: spaghettikart-save,   src: ["file:tools/spaghettikart/current/default.sav",
+                                        "file:tools/spaghettikart/current/controllerPak_header.sav"] }
   - { name: dk64-recomp,          src: ".config/DK64Recompiled" }
-  - { name: goldeneye-recomp,     src: ".config/GoldenRecomp" }
+  - { name: project-midas,       src: ".local/share/ProjectMidas" }
+  - { name: hl360-fm4,           src: ".local/share/hl360-fm4" }
+  - { name: outrunners,           src: ["file:.local/share/OutRunners/outrunners.eeprom",
+                                        "file:.local/share/OutRunners/outrunners.bookkeeping",
+                                        "file:.local/share/OutRunners/orunners.eeprom",
+                                        "file:.local/share/OutRunners/orunners.bookkeeping",
+                                        "file:.local/share/OutRunners/controls.ini",
+                                        "file:.local/share/OutRunners/outrunners.ini",
+                                        "file:.local/share/OutRunners/ghost_0.bin",
+                                        "file:.local/share/OutRunners/ghost_1.bin",
+                                        "file:.local/share/OutRunners/ghost_2.bin",
+                                        "file:.local/share/OutRunners/ghost_3.bin",
+                                        "file:.local/share/OutRunners/ghost_4.bin",
+                                        "file:.local/share/OutRunners/ghost_5.bin",
+                                        "file:.local/share/OutRunners/ghost_6.bin",
+                                        "file:.local/share/OutRunners/ghost_7.bin",
+                                        "file:.local/share/OutRunners/ghost_8.bin",
+                                        "file:.local/share/OutRunners/ghost_9.bin"] }
+  - { name: gravity-rush,        src: ".local/share/gravity-rush" }
+  - { name: doa2u-re,            src: ".local/share/doa2u-re" }
+  - { name: gt3-revisited,        src: ".local/share/GT3Revisited" }
+  - { name: gt2-pc-port,          src: ".local/share/gt2-pc" }
   - { name: unleashed-recomp,     src: ".config/UnleashedRecomp" }
   - { name: perfectdark,          src: ".local/share/perfectdark" }
   - { name: dude-config,          src: ".config/dude" }
@@ -71,9 +104,111 @@ dg_save_sets:
   - { name: prboom-data,          src: ".local/share/prboom-plus-rt" }
   - { name: banjo-recompiled,     src: ".config/BanjoRecompiled" }   # legacy BanjoRecomp saves (pre-Lighthouse)
 
+  # Original-Xbox recompilations: emulated hard disks
+  - { name: pgr2-recomp,          src: ["Games/pgr2/hdd/E/UDATA",
+                                       "file:Games/pgr2/pgr2.toml"] }
+
+  # REA launchers (2026-11-01): their own prefixes/state keep saves and settings
+  - { name: rea-dirt,             src: [".local/share/dirt-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/Documents/Codemasters/DiRT",
+                                       "file:.local/share/dirt-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/DiRTLauncher/launcher.cfg"] }
+  - { name: rea-colin-mcrae-3,    src: [".local/share/cmr3-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/Saved Games/Colin McRae Rally 3",
+                                       "file:.local/share/cmr3-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR3Launcher/launcher.cfg"] }
+  - { name: rea-screamer,         src: [".local/share/screamer-launcher/saves",
+                                       "file:.config/screamer-launcher/launcher.cfg"] }
+  - { name: rea-outrun-2006,      src: [".local/share/or-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/Saved Games/OutRun 2006",
+                                       "file:.local/share/or-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/OutRunLauncher/launcher.cfg"] }
+  - { name: rea-sega-rally-revo,  src: [".local/share/srr-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/Documents/SEGA Rally/Saved Games",
+                                       "file:.local/share/srr-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/SRRLauncher/launcher.cfg"] }
+  # CMR04 writes loose save/settings files inside the launcher's private runtime
+  # copy (CMR4/); back up those persistent names, not the ~1 GB game copy.
+  - { name: rea-colin-mcrae-4,    src: ["file:.local/share/cmr4-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR4Launcher/CMR4/OPTIONS",
+                                       "file:.local/share/cmr4-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR4Launcher/CMR4/CHAMPIONSHIP_SLOT_1",
+                                       "file:.local/share/cmr4-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR4Launcher/CMR4/BESTTIMES_GHOSTS",
+                                       "file:.local/share/cmr4-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR4Launcher/launcher.cfg"] }
+  # CMR2005 keeps the saves in their own folder in the prefix, outside the game
+  # and the private copy; back up that folder plus the launcher.cfg (not the
+  # ~3.6 GB unpacked game copy, which rebuilds from the GOG source on first run).
+  - { name: rea-colin-mcrae-2005, src: [".local/share/cmr2005-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR2005Launcher/saves",
+                                       "file:.local/share/cmr2005-launcher/prefix/drive_c/users/{{ ansible_facts.user_id }}/AppData/Local/CMR2005Launcher/launcher.cfg"] }
+  # DiRT Rally is a native Linux game (no Wine prefix): the Feral port keeps its
+  # settings in feral-interactive/, and this pre-activated copy keeps the career
+  # /profile saves in the Steam-emu's remote folder. Back up both plus the
+  # launcher.cfg (not the ~43 GB private copy, which rebuilds from the source).
+  - { name: rea-dirt-rally,       src: [".local/share/Steam/ACTiVATED/310560/remote",
+                                       ".local/share/feral-interactive/DiRT Rally",
+                                       "file:.config/dirtrally-launcher/launcher.cfg"] }
+
+  # ---- 2026-10-28 save-path audit of every installed GitHub port ----
+  # Recomps/ports that keep saves in a per-game config or user-data dir.
+  # Dusk and Fukami are cut down to their memory cards: their user roots also
+  # hold 6 GB / 461 MB of re-derivable texture and disc data.
+  - { name: banjotooie-recomp,   src: ".config/banjotooie-recomp/saves" }
+  - { name: cbfd-recomp,         src: ".config/ConkerRecompiled/saves" }
+  - { name: dkr-recomp,          src: [".config/dkr-port/saves", "file:.config/dkr-port/controller-pak-1.mpk"] }
+  - { name: dusk-twilight,       src: ".local/share/TwilitRealm/Dusklight/USA" }
+  - { name: fzero-glinux,        src: ".local/share/fzero-glinux/GC" }
+  - { name: gow3-pc,             src: ".local/share/gow3/user/savedata" }
+  - { name: sotc-pc,             src: "tools/sotc-pc/user/savedata" }
+  - { name: dekui,               src: "tools/dekui/dekui/user/nand" }
+  - { name: driveclub-recomp,    src: "tools/driveclub-recomp/data/user" }
+  - { name: fh1-reimagined,      src: [".local/share/forza/B13EBABEBABEBABE",
+                                        ".local/share/forza/save-backups",
+                                        "file:.local/share/forza/live_identity.txt"] }
+  - { name: ttt2-pc,             src: ["tools/ttt2-pc/.compatdata/pfx/drive_c/users/steamuser/AppData/Local/TTT2Recomp/saves",
+                                        "file:tools/ttt2-pc/.compatdata/pfx/drive_c/users/steamuser/AppData/Local/TTT2Recomp/settings.ini",
+                                        "file:tools/ttt2-pc/.compatdata/pfx/drive_c/users/steamuser/AppData/Local/TTT2Recomp/servers.ini",
+                                        "file:tools/ttt2-pc/.compatdata/pfx/drive_c/users/steamuser/AppData/Local/TTT2Recomp/community/known_servers.txt"] }
+  - { name: xerenge,             src: "{{ ansible_facts.env.HOME }}/.local/share/burnout/B13EBABEBABEBABE" }
+  - { name: overstrike,          src: ["tools/overstrike/msmm/Profiles", "tools/overstrike/msmr/Profiles"] }
+  - { name: project-r,           src: ".config/ProjectR" }
+  - { name: doom64-rt,           src: ".config/doom64-rt" }
+  - { name: dkc-recomp,          src: ["tools/dkc1-src/build/linux/saves", "tools/dkc2-src/build/linux/saves", "tools/dkc3-src/build/linux/saves"] }
+  # These two run natively on the host (no distrobox), so their saves are in the
+  # HOST home — absolute manifest paths, which backup-saves now supports.
+  - { name: fukami,              src: ["{{ ansible_facts.env.HOME }}/.local/share/Fukami/mc",
+                                       "file:{{ ansible_facts.env.HOME }}/.local/share/Fukami/fukami.ini"] }
+  - { name: takedawn,            src: "{{ ansible_facts.env.HOME }}/.local/share/takedawn" }
+
+  # Native fan games / source ports
+  - { name: g-diffuser,          src: "Games/g-diffuser/saves" }
+  - { name: moon-facility,       src: "Games/moon-facility/Sonic and The Moon Facility (Final 2)/Data" }
+  - { name: smb-remastered,      src: "Games/smb-remastered/config" }
+  - { name: sonic-p06-saves,     src: "Games/sonic-p06/SaveFiles" }
+  - { name: twine,               src: "Games/twine/data/saves" }
+  - { name: sotn-recomp,         src: ["file:Games/sotn-recomp/carda.sav", "file:Games/sotn-recomp/cardb.sav"] }
+  - { name: render96ex,          src: ".local/share/sm64ex" }
+  - { name: pilotwings-recomp,   src: ".local/share/Pilotwings64Recomp/saves" }
+  - { name: project-reignition,  src: ".local/share/godot/app_userdata/Sonic and the Secret Rings Remake" }
+  - { name: starfox-enhanced,    src: "file:tools/starfox-enhanced/game/starfox-ex.srm" }
+  - { name: opencmr2,            src: ".local/share/OpenCMR2" }
+  - { name: rea-colin-mcrae,     src: ["Games/rea-colin-mcrae/saves",
+                                       "file:Games/rea-colin-mcrae/previous-cmRally.cfg",
+                                       "file:wineprefixes/rea-colin-mcrae/drive_c/users/{{ ansible_facts['user_id'] }}/AppData/Local/CMRLauncher/launcher.cfg"] }
+  - { name: sega-rally-2,        src: ["file:Games/pc-racing/sega-rally-2/SR2_SAVE.DAT",
+                                        "file:Games/pc-racing/sega-rally-2/SR2.CFG",
+                                        "file:Games/pc-racing/sega-rally-2/SR2.DSP"] }
+  - { name: scud-race,           src: ["file:Games/scud-race/scudrace.nv",
+                                        "file:Games/scud-race/scudrace.ini",
+                                        "file:Games/scud-race/online.ini"] }
+  - { name: nightfire-recomp,    src: ["Games/nightfire/NightFire/play/hdd/E/UDATA/45410026",
+                                        "file:Games/nightfire/NightFire/play/settings.toml"] }
+  - { name: pgr1-recomp,         src: ["Games/pgr1/PGR1/play/hdd/E/UDATA/4d530003",
+                                        "file:Games/pgr1/PGR1/play/hdd/display.bin",
+                                        "file:Games/pgr1/PGR1/play/pgr1.toml"] }
+  - { name: opensc2k,            src: ".local/share/godot/app_userdata/OpenSC2K/cities" }
+  - { name: sonicxg,             src: ".config/Sonic_XG" }
+  - { name: sonic-classic,       src: ["file:Games/sonic-classic/S_Classic1Rev03_FULL/ringdata.sav",
+                                       "Games/sonic-classic/S_Classic1Rev03_FULL/Ghosts"] }
+  - { name: sonic-dimensions,    src: "file:Games/sonic-dimensions/Sonic Dimensions/SaveData.sav" }
+  - { name: sonic2-2013,         src: ["file:Games/sonic2-2013/SData.bin", "file:Games/sonic2-2013/UData.bin"] }
+  - { name: cannonball,          src: ["file:Games/cannonball/highscores.xml", "file:Games/cannonball/play_stats.xml",
+                                       "file:Games/cannonball/config.xml"] }
+
   # ---- Native fan games / remakes ----
   - { name: sonic3air,            src: ".local/share/Sonic3AIR" }
-  - { name: starfox-enhanced,     src: ".local/share/StarFoxEnhanced" }
+  # .local/share/StarFoxEnhanced was the Wine-era location and holds only a
+  # stale runtime.lock; the native port saves beside its executable (listed
+  # in the 2026-10-28 block below).
   - { name: smw-remastered,       src: ".local/share/SuperMarioWorldRemastered" }
   - { name: sorr-save,            src: "tools/sorr/game/savegame" }
   - { name: midnightclub-la,      src: "tools/midnightclubla/midnightclubla/user-data" }
@@ -82,3 +217,14 @@ dg_save_sets:
   - { name: sonic-fallen-star,    src: "Games/sonic-fallen-star/Sonic and the Fallen Star (V1.1.1 Edit 4)/Data" }  # Clickteam Fusion saves live next to the exe (re-extracted on rebuild)
   - { name: sm64ds-port,          src: "Games/sm64ds-port/save" }          # SM64 DS port cartridge save + save states (re-extracted gamedir on rebuild)
   - { name: wwhd-recomp,          src: "tools/wwhd-recomp/data/save" }     # Wind Waker HD recomp saves + Picto Box pics (game rebuilt from dump on rebuild)
+  - { name: mp4-recomp,           src: [".local/share/MetroidPrime4Recomp/Metroid Prime 4 Beyond_data/save",
+                                        "file:.local/share/MetroidPrime4Recomp/Metroid Prime 4 Beyond.ini"] }  # MP4 Beyond recomp saves + settings (game rebuilt from dump on rebuild)
+  # Virtua Fighter recomp runs portable: EEPROM, NVRAM and ranking names sit
+  # beside the executable, not in a data/ subdir.
+  - { name: vf1-recomp,           src: ["file:tools/vf1-recomp/VirtuaFighter/eeprom.sav",
+                                        "file:tools/vf1-recomp/VirtuaFighter/nvram.sav",
+                                        "file:tools/vf1-recomp/VirtuaFighter/ranking_names.txt"] }
+  - { name: vf3-recomp,           src: "{{ dg_vf3_data_rel }}" }  # VF3 settings, EEPROM, rankings, screenshots and logs; separate from release files
+  - { name: smas-recomp,          src: "tools/smas-recomp/SuperMarioAllStars-Linux" }  # SMAS recomp config.ini/keybinds.ini + *.srm battery + *.sav states (anchored to exe dir, no save subdir; binary/assets re-extracted on rebuild)
+  - { name: ultratears,           src: "tools/ultratears/userdata" }  # UltraTears (TOTK) recomp saves + account.uid (game rebuilt from the NAS dump on rebuild)
+  - { name: soulcalibur2,         src: ".local/share/Soulcalibur II" }  # SC2 recomp settings.ini + Xbox HDD save partitions (game reads the owned disc directly, not restaged)

@@ -7,12 +7,12 @@ rows are just the index). Contributions welcome if you crack one.
 
 | Game / mod | Why it's unsupported | Issue |
 |---|---|---|
-| Sega Rally 2 (25th-Anniversary repack) | Wine dead-end — the game's own MGameD3D renderer null-derefs; D3D resources come back null and it walks a hollow table. 🔴 re-checked 2026-10-03: no new repack version, still blocked | [#3](https://github.com/akitaonrails/distrobox-gaming/issues/3) |
-| Colin McRae Rally 2005 (PC/GOG) | Wine dead-end (page fault `0041DA27`); use the PS2/PCSX2 version. 🔴 re-checked 2026-10-03: AppDB still Bronze, still blocked | [#4](https://github.com/akitaonrails/distrobox-gaming/issues/4) |
+| ~~Sega Rally 2~~ (25th-Anniversary repack) | ✅ RESOLVED 2026-10-30 with the original European PC release and [sr2-patcher](https://github.com/pairomaniac/sr2-patcher); the opt-in role installs and launches it on the RTX 5090. The Anniversary repack's modified executable remains incompatible. See [setup](sega-rally-2.md). | [#3](https://github.com/akitaonrails/distrobox-gaming/issues/3) |
+| ~~Colin McRae Rally 2005 (PC/GOG)~~ | ✅ RESOLVED 2026-11-02 — the dead-end crash at `0041DA27` was the game loading its fonts through registry values its installer never got to write; the [REA launcher](rea-colin-mcrae-2005.md) writes them on every start and unpacks the GOG installer with innoextract. Runs natively at 4K via `install_rea_colin_mcrae_2005`. | [#4](https://github.com/akitaonrails/distrobox-gaming/issues/4) |
 | DiRT 3 Complete Edition | Fix exists but needs the legit Steam copy (disable Steam Input + in-game V-Sync) — not owned, delisted/unpurchasable; repack's GFWL crash unfixable. ⛔ final 2026-10-03: stays parked | [#5](https://github.com/akitaonrails/distrobox-gaming/issues/5) |
-| DiRT Rally | Fix exists but needs the legit Steam copy (Proton + `WINE_CPU_TOPOLOGY`, or Feral `feral_support_branch`) — not owned, delisted/unpurchasable. ⛔ final 2026-10-03: stays parked | [#6](https://github.com/akitaonrails/distrobox-gaming/issues/6) |
+| ~~DiRT Rally~~ | ✅ RESOLVED 2026-11-02 — the Windows-under-Proton path needed a legit Steam copy, but Feral's **native Linux port** sidesteps that; the [REA launcher](rea-dirt-rally.md) bundles the old scout libraries + the Ryzen-5000 crash shim and runs it at 4K via `install_rea_dirt_rally`. (Full in-box stage not yet re-driven here; upstream played it end to end on this config.) | [#6](https://github.com/akitaonrails/distrobox-gaming/issues/6) |
 | TeknoParrot (arcade) | Parked — Windows-loaders-under-Wine works but is an endless per-game tuning treadmill. 🔴 re-checked 2026-10-03: no structural change | [#7](https://github.com/akitaonrails/distrobox-gaming/issues/7) |
-| Doom 64 RT (path-traced) | 🟢 re-checked 2026-10-03: FIXED — native Linux AppImage (acolomba/doom64-rt, upstream-endorsed) or Proton; the distrobox-Wine dead end is moot | [#8](https://github.com/akitaonrails/distrobox-gaming/issues/8) |
+| ~~Doom 64 RT (path-traced)~~ | ✅ RESOLVED 2026-10-17 — Retribution v1.5 and OGG music archives installed; native AppImage `check` confirms the game data is complete. Interactive play has not yet been verified; see [setup notes](doom64-rt.md). | [#8](https://github.com/akitaonrails/distrobox-gaming/issues/8) |
 | ~~Castlevania: SotN (SymphonyRecomp)~~ | ✅ RESOLVED 2026-10-03 — our disc staging was malformed (missing `"(USA)"` in bin names per the 2026-09-27 README spec); fixed by symlinking the EmuDeck rip verbatim; boot-verified past the crash | [#9](https://github.com/akitaonrails/distrobox-gaming/issues/9) |
 | Spyro the Dragon (OpenPete) | Blocked on a disc-image hash mismatch — needs Redump #576 (`1e08ae8…`); the common dump doesn't match. 🔴 re-checked 2026-10-03: unchanged (native Linux AppImage now exists for when the disc appears) | [#10](https://github.com/akitaonrails/distrobox-gaming/issues/10) |
 | ~~Spider-Man Remastered / Miles Morales (mods)~~ | ✅ RESOLVED 2026-10-03 — park diagnosis was wrong: Overstrike has a headless CLI since v1.7.2 (2025-04); automated via `install_spiderman_mods` | [#11](https://github.com/akitaonrails/distrobox-gaming/issues/11) |
@@ -26,5 +26,4 @@ Notes:
   Wine/distrobox (or Steam+Proton) stack can't run, or mods that need an
   interactive Windows GUI installer.
 - Several have **working alternatives** already in the repo (e.g. Sega Rally
-  Revo / Sega Rally Championship HD for Sega Rally 2; PCSX2 for Colin McRae
-  Rally 2005). See the linked issue.
+  Revo / Sega Rally Championship HD for Sega Rally 2). See the linked issue.

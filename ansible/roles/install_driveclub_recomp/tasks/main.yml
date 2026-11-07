@@ -1,0 +1,193 @@
+---
+- name: Download the pinned DriveClub Recomp release
+  ansible.builtin.get_url:
+    url: "{{ dg_dcr_archive_url }}"
+    dest: "{{ dg_dcr_archive }}"
+    checksum: "sha256:{{ dg_dcr_archive_sha256 }}"
+    mode: "0644"
+
+- name: Check the pinned DriveClub Recomp release
+  ansible.builtin.stat:
+    path: "{{ dg_dcr_archive }}"
+    checksum_algorithm: sha256
+  register: _dcr_archive
+
+- name: Verify DriveClub Recomp archive and Proton
+  ansible.builtin.assert:
+    that:
+      - _dcr_archive.stat.isreg | default(false)
+      - _dcr_archive.stat.checksum | default('') == dg_dcr_archive_sha256
+      - dg_dcr_proton is file
+    fail_msg: DriveClub Recomp archive hash or Proton executable does not match the pinned setup.
+
+- name: Create DriveClub Recomp directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_dcr_install_dir }}"
+    - "{{ dg_dcr_install_dir }}/mods"
+    - "{{ dg_box_home }}/bin"
+
+- name: Check installed DriveClub Recomp version
+  ansible.builtin.stat:
+    path: "{{ dg_dcr_install_dir }}/.dg-installed-{{ dg_dcr_version }}"
+  register: _dcr_installed
+
+- name: Extract DriveClub Recomp without touching saved settings or mods
+  ansible.builtin.command:
+    argv:
+      - bsdtar
+      - -xf
+      - "{{ dg_dcr_archive }}"
+      - --strip-components
+      - '1'
+      - -C
+      - "{{ dg_dcr_install_dir }}"
+  when: not _dcr_installed.stat.exists
+
+- name: Verify the updated DriveClub executable is present
+  ansible.builtin.stat:
+    path: "{{ dg_dcr_install_dir }}/DriveClub.exe"
+  register: _dcr_executable
+  failed_when: not _dcr_executable.stat.isreg | default(false)
+
+- name: Record installed DriveClub Recomp version
+  ansible.builtin.file:
+    path: "{{ dg_dcr_install_dir }}/.dg-installed-{{ dg_dcr_version }}"
+    state: touch
+    mode: "0644"
+  when: not _dcr_installed.stat.exists
+
+- name: Check for supported US DriveClub game data
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ dg_dcr_base_dir }}/game000.dat"
+    - "{{ dg_dcr_update_dir }}/eboot.bin"
+    - "{{ dg_dcr_update_dir }}/sce_sys/param.sfo"
+  register: _dcr_game_files
+
+- name: Check US title ID and update version
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        from pathlib import Path
+        import sys
+        data = Path(sys.argv[1]).read_bytes()
+        if b'CUSA00093' not in data or b'01.28' not in data:
+            raise SystemExit('DriveClub Recomp needs CUSA00093 v1.28')
+      - "{{ dg_dcr_update_dir }}/sce_sys/param.sfo"
+  when: _dcr_game_files.results | selectattr('stat.exists') | list | length == 3
+  register: _dcr_game_identity
+  failed_when: false
+  changed_when: false
+
+- name: Set DriveClub Recomp readiness
+  ansible.builtin.set_fact:
+    _dcr_game_ready: >-
+      {{ (_dcr_game_files.results | selectattr('stat.exists') | list | length == 3)
+         and (_dcr_game_identity.rc | default(1) == 0) }}
+
+- name: Create DriveClub Recomp user settings directory
+  ansible.builtin.file:
+    path: "{{ dg_dcr_install_dir }}/data/user"
+    state: directory
+    mode: "0755"
+  when: _dcr_game_ready | bool
+
+- name: Seed DriveClub Recomp paths and DLC unlock without overwriting user settings
+  ansible.builtin.template:
+    src: launcher.ini.j2
+    dest: "{{ dg_dcr_install_dir }}/launcher.ini"
+    mode: "0644"
+    force: false
+  when: _dcr_game_ready | bool
+
+- name: Check whether the max-quality baseline was applied
+  ansible.builtin.stat:
+    path: "{{ dg_dcr_install_dir }}/.dg-max-baseline"
+  register: _dcr_max_marker
+  when: _dcr_game_ready | bool
+
+# The launcher's own window rewrites launcher.ini in this key=value form (no
+# sections), so the baseline is applied line by line and only once: later
+# changes made in the game or launcher are preserved.
+- name: Apply the max-quality launcher baseline once
+  ansible.builtin.lineinfile:
+    path: "{{ dg_dcr_install_dir }}/launcher.ini"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    mode: "0644"
+  loop: "{{ dg_dcr_max_baseline }}"
+  when:
+    - _dcr_game_ready | bool
+    - not _dcr_max_marker.stat.exists
+
+- name: Record that the max-quality baseline was applied
+  ansible.builtin.file:
+    path: "{{ dg_dcr_install_dir }}/.dg-max-baseline"
+    state: touch
+    mode: "0644"
+  when:
+    - _dcr_game_ready | bool
+    - not _dcr_max_marker.stat.exists
+
+- name: Drop the internal-resolution patch that carries the upstream depth bug
+  ansible.builtin.lineinfile:
+    path: "{{ dg_dcr_install_dir }}/data/user/patches_enabled.txt"
+    regexp: "Internal resolution \\[DEPTH BUG\\]"
+    state: absent
+  when: _dcr_game_ready | bool
+
+- name: Ensure the max-quality patches are enabled without dropping user ones
+  ansible.builtin.lineinfile:
+    path: "{{ dg_dcr_install_dir }}/data/user/patches_enabled.txt"
+    line: "{{ item }}"
+    mode: "0644"
+  loop:
+    - 60 FPS with deltatime
+    - 4K [3840x2160] Output resolution
+    - Memory for up to 4K
+  when: _dcr_game_ready | bool
+
+- name: Seed 4K output and real-time 60 FPS without overwriting user patches
+  ansible.builtin.template:
+    src: patches_enabled.txt.j2
+    dest: "{{ dg_dcr_install_dir }}/data/user/patches_enabled.txt"
+    mode: "0644"
+    force: false
+  when: _dcr_game_ready | bool
+
+- name: Install DriveClub Recomp launcher
+  ansible.builtin.template:
+    src: driveclub-recomp.sh.j2
+    dest: "{{ dg_dcr_launcher }}"
+    mode: "0755"
+
+- name: Render DriveClub Recomp desktop entry when compatible data exists
+  ansible.builtin.template:
+    src: gaming-driveclub-recomp.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-driveclub-recomp.desktop"
+    mode: "0644"
+  when: _dcr_game_ready | bool
+
+- name: Install DriveClub Recomp desktop entry on host
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _dcr_host_launcher
+  changed_when: "'installed ' in _dcr_host_launcher.stdout or 'removed stale ' in _dcr_host_launcher.stdout"
+  when: _dcr_game_ready | bool
+
+- name: Report DriveClub Recomp status
+  ansible.builtin.debug:
+    msg: >-
+      DriveClub Recomp {{ dg_dcr_version }} is installed at {{ dg_dcr_install_dir }}.
+      {{ 'CUSA00093 v1.28 is ready; the desktop launcher is available.' if _dcr_game_ready | bool
+         else 'Only CUSA00093 v1.28 is supported; the desktop launcher is withheld until compatible data is supplied. Existing CUSA00003 shadPS4 files remain untouched.' }}

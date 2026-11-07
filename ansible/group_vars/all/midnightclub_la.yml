@@ -19,11 +19,11 @@ dg_mcla_dir: "{{ dg_mcla_root }}/midnightclubla"               # launcher dir (h
 dg_mcla_cache_dir: "{{ dg_box_home }}/cache/midnightclubla"
 dg_mcla_launcher: "{{ dg_box_home }}/bin/midnightclubla"
 dg_mcla_main_output: "DP-1"
-# Rendering upgrades passed as rex cvars through run.sh: 2x internal draw
-# resolution (720p -> 1440p; the GPU pass is ~1.1 ms so it is free on the RTX)
+# Rendering upgrades passed as rex cvars through run.sh: 3x internal draw
+# resolution (720p -> 2160p on the 4K panel)
 # and forced 16x anisotropic filtering (5 = 16x, -1 = no override). Drop
 # dg_mcla_resolution_scale back to 1 if a scene ever renders wrong.
-dg_mcla_resolution_scale: 2
+dg_mcla_resolution_scale: 3
 dg_mcla_aniso_override: 5
 dg_mcla_revert: false
 

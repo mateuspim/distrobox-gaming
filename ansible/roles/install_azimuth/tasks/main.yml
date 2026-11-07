@@ -77,16 +77,253 @@
     mode: "0644"
   when: not _azimuth_installed.stat.exists
 
+- name: Check the matching Extra Options archive
+  ansible.builtin.stat:
+    path: "{{ dg_azimuth_extra_options_zip }}"
+    checksum_algorithm: sha256
+  register: _azimuth_extra_options_zip
+
+- name: Verify the Extra Options archive
+  ansible.builtin.assert:
+    that:
+      - _azimuth_extra_options_zip.stat.isreg | default(false)
+      - _azimuth_extra_options_zip.stat.checksum | default('') == dg_azimuth_extra_options_sha256
+    fail_msg: "Expected the pinned Extra Options {{ dg_azimuth_extra_options_version }} archive for Azimuth {{ dg_azimuth_version }}."
+
+- name: Check installed Extra Options version
+  ansible.builtin.stat:
+    path: "{{ dg_azimuth_install_dir }}/.dg-extra-options-{{ dg_azimuth_extra_options_version }}"
+  register: _azimuth_extra_options_installed
+
+- name: Install Extra Options without replacing user settings or saves
+  when: not _azimuth_extra_options_installed.stat.exists
+  block:
+    - name: Create temporary Extra Options staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: dg-azimuth-extra-options-
+      register: _azimuth_extra_options_staging
+
+    - name: Extract Extra Options to staging
+      ansible.builtin.unarchive:
+        src: "{{ dg_azimuth_extra_options_zip }}"
+        dest: "{{ _azimuth_extra_options_staging.path }}"
+        remote_src: true
+
+    - name: Install Extra Options runtime files
+      ansible.builtin.copy:
+        src: "{{ _azimuth_extra_options_staging.path }}/Azimuth/{{ item.src }}"
+        dest: "{{ dg_azimuth_install_dir }}/{{ item.dest }}"
+        remote_src: true
+        mode: "0644"
+      loop:
+        - { src: winmm.dll, dest: winmm.dll }
+
+    # 0.3.x ships its extras as launcher mods; existing mods are preserved
+    # by only copying the shipped folder when it is not already installed.
+    - name: Install the Extra Options mod-loader plugins
+      ansible.builtin.command:
+        argv:
+          - cp
+          - -a
+          - "{{ _azimuth_extra_options_staging.path }}/Azimuth/mods/."
+          - "{{ dg_azimuth_install_dir }}/mods/"
+        creates: "{{ dg_azimuth_install_dir }}/mods/Extra Options - Garage Revving/mod.json"
+
+    # 0.2.x installed a tls shim that 1.0.x replaced with its own pair.
+    - name: Remove the obsolete Extra Options tls shim
+      ansible.builtin.file:
+        path: "{{ dg_azimuth_install_dir }}/data/bin/azimuth-tls.dll"
+        state: absent
+
+    - name: Record installed Extra Options version
+      ansible.builtin.file:
+        path: "{{ dg_azimuth_install_dir }}/.dg-extra-options-{{ dg_azimuth_extra_options_version }}"
+        state: touch
+        mode: "0644"
+  always:
+    - name: Remove temporary Extra Options staging directory
+      ansible.builtin.file:
+        path: "{{ _azimuth_extra_options_staging.path }}"
+        state: absent
+      when: _azimuth_extra_options_staging.path is defined
+
+- name: Check Azimuth settings and one-time display baseline marker
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ dg_azimuth_install_dir }}/data/azimuth.ini"
+    - "{{ dg_azimuth_install_dir }}/.dg-display-baseline-applied"
+  register: _azimuth_display_baseline
+
+- name: Set Azimuth to 4K Ultra and 60 FPS real-time pacing once
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        from pathlib import Path
+        import sys
+        path = Path(sys.argv[1])
+        settings = dict(zip(
+            ('resolution', 'graphics', 'frame_rate', 'frame_pacing'),
+            sys.argv[2:],
+        ))
+        text = path.read_bytes().decode('utf-16')
+        lines = text.splitlines(keepends=True)
+        seen = set()
+        for index, line in enumerate(lines):
+            key = line.split('=', 1)[0]
+            if key in settings and key not in seen:
+                ending = '\r\n' if line.endswith('\r\n') else '\n' if line.endswith('\n') else ''
+                lines[index] = f'{key}={settings[key]}{ending}'
+                seen.add(key)
+        if not seen:
+            raise SystemExit('No known Azimuth setting keys found')
+        if settings.keys() - seen:
+            print('skipped-removed-keys:', ','.join(sorted(settings.keys() - seen)))
+        updated = ''.join(lines)
+        if updated != text:
+            path.write_bytes(updated.encode('utf-16'))
+            print('azimuth-settings-changed')
+      - "{{ dg_azimuth_install_dir }}/data/azimuth.ini"
+      - "{{ dg_azimuth_resolution }}"
+      - "{{ dg_azimuth_graphics }}"
+      - "{{ dg_azimuth_frame_rate }}"
+      - "{{ dg_azimuth_frame_pacing }}"
+  register: _azimuth_display_tune
+  changed_when: "'azimuth-settings-changed' in _azimuth_display_tune.stdout"
+  when:
+    - _azimuth_display_baseline.results[0].stat.exists
+    - not _azimuth_display_baseline.results[1].stat.exists
+
+- name: Remember that the Azimuth display baseline has been applied
+  ansible.builtin.file:
+    path: "{{ dg_azimuth_install_dir }}/.dg-display-baseline-applied"
+    state: touch
+    mode: "0644"
+  when:
+    - _azimuth_display_baseline.results[0].stat.exists
+    - not _azimuth_display_baseline.results[1].stat.exists
+
+- name: Check pinned Forza Horizon 2 mod archives
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+    checksum_algorithm: sha256
+  loop:
+    - { path: "{{ dg_azimuth_radio_zip }}", checksum: "{{ dg_azimuth_radio_sha256 }}" }
+  register: _azimuth_mod_archives
+
+- name: Verify pinned Forza Horizon 2 mod archives
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - item.stat.checksum | default('') == item.item.checksum
+    fail_msg: "Missing or unexpected mod archive: {{ item.item.path }}"
+  loop: "{{ _azimuth_mod_archives.results }}"
+
+- name: Check installed radio version
+  ansible.builtin.stat:
+    path: "{{ dg_azimuth_install_dir }}/.dg-radio-{{ dg_azimuth_radio_version }}"
+  register: _azimuth_radio_installed
+
+- name: Install Spotify and local music radio without overwriting its settings
+  when: not _azimuth_radio_installed.stat.exists
+  block:
+    - name: Create temporary radio staging directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: dg-azimuth-radio-
+      register: _azimuth_radio_staging
+
+    - name: Extract the radio archive to staging
+      ansible.builtin.unarchive:
+        src: "{{ dg_azimuth_radio_zip }}"
+        dest: "{{ _azimuth_radio_staging.path }}"
+        remote_src: true
+
+    - name: Create the radio music directory
+      ansible.builtin.file:
+        path: "{{ dg_azimuth_install_dir }}/spotify-radio/MUSIC"
+        state: directory
+        mode: "0755"
+
+    - name: Install radio runtime and documentation
+      ansible.builtin.copy:
+        src: "{{ _azimuth_radio_staging.path }}/{{ item }}"
+        dest: "{{ dg_azimuth_install_dir }}/{{ item }}"
+        remote_src: true
+        mode: "0644"
+      loop:
+        - D3DCompiler_47.dll
+        - spotify-radio/README.txt
+        - spotify-radio/THIRD-PARTY-LICENSES.txt
+        - spotify-radio/logo.swatchbin
+
+    - name: Check for customized radio settings
+      ansible.builtin.stat:
+        path: "{{ dg_azimuth_install_dir }}/spotify-radio/config.ini"
+      register: _azimuth_radio_settings
+
+    - name: Install radio defaults when no settings exist
+      ansible.builtin.copy:
+        src: "{{ _azimuth_radio_staging.path }}/spotify-radio/config.ini"
+        dest: "{{ dg_azimuth_install_dir }}/spotify-radio/config.ini"
+        remote_src: true
+        mode: "0644"
+      when: not _azimuth_radio_settings.stat.exists
+
+    - name: Record installed radio version
+      ansible.builtin.file:
+        path: "{{ dg_azimuth_install_dir }}/.dg-radio-{{ dg_azimuth_radio_version }}"
+        state: touch
+        mode: "0644"
+  always:
+    - name: Remove temporary radio staging directory
+      ansible.builtin.file:
+        path: "{{ _azimuth_radio_staging.path }}"
+        state: absent
+      when: _azimuth_radio_staging.path is defined
+
 - name: Install Azimuth launcher
   ansible.builtin.template:
-    src: azimuth-fh2.sh.j2
+    src: azimuth.sh.j2
     dest: "{{ dg_azimuth_launcher }}"
     mode: "0755"
 
+
+# One launcher, Azimuth's own hub. The per-game entries (and the retired
+# ForzaInfinity one) all just reopened the hub in 1.0.x — `--skip-launcher`
+# does not resolve — so they are gone; delete whatever an older run left.
+- name: Remove the retired per-game Azimuth launchers
+  ansible.builtin.file:
+    path: "{{ dg_box_home }}/bin/{{ item }}"
+    state: absent
+  loop: "{{ dg_azimuth_legacy_shortcuts }}"
+
+- name: Remove the retired per-game Azimuth desktop entries
+  ansible.builtin.file:
+    path: "{{ dg_desktop_render_dir }}/gaming-{{ item }}.desktop"
+    state: absent
+  loop: "{{ dg_azimuth_legacy_shortcuts }}"
+
+# install-host-launchers.sh only iterates the rendered directory, so host
+# entries whose template is gone are left behind; prune them here.
+- name: Remove the retired per-game Azimuth host entries
+  ansible.builtin.file:
+    path: "{{ dg_host_applications_dir }}/gaming-{{ item }}.desktop"
+    state: absent
+  loop: "{{ dg_azimuth_legacy_shortcuts }}"
+
+- name: Remove the retired ForzaInfinity install directory
+  ansible.builtin.file:
+    path: "{{ dg_box_home }}/tools/azimuth-infinity"
+    state: absent
+
 - name: Render Azimuth desktop entry
   ansible.builtin.template:
-    src: azimuth-fh2.desktop.j2
-    dest: "{{ dg_desktop_render_dir }}/gaming-azimuth-fh2.desktop"
+    src: azimuth.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-azimuth.desktop"
     mode: "0644"
 
 - name: Install Azimuth host desktop entry

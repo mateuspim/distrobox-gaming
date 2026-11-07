@@ -1,0 +1,360 @@
+---
+# hl360-forza4 needs the USA Rev 1 discs. The port itself is installed either
+# way; the game tree and the Disc 2 content packages are only built from
+# matching discs, through the fm4tool.exe the player ZIP ships (the port's own
+# launcher cannot be used for that here: see docs/fm4-hl360.md).
+
+# Self-healing: an already staged copy is reused, a missing or corrupt one is
+# fetched. Keeps the offline rebuild path (drop the ZIP in the cache) and the
+# unattended one (the pinned URL) on the same task.
+- name: Fetch the pinned player build
+  ansible.builtin.get_url:
+    url: "{{ dg_hl360_asset_url }}"
+    dest: "{{ dg_hl360_asset_path }}"
+    checksum: "sha256:{{ dg_hl360_asset_sha256 }}"
+    mode: "0644"
+
+- name: Require the configured Proton build
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_proton }}"
+  register: _hl360_proton
+- ansible.builtin.assert:
+    that: _hl360_proton.stat.executable | default(false)
+    fail_msg: "GE-Proton is required at dg_hl360_proton."
+
+- name: Create the port directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_hl360_release_dir }}"
+    - "{{ dg_hl360_cache_dir }}"
+    - "{{ dg_hl360_user_dir }}"
+    # the per-version user/ and logs/ symlinks point here; without these the
+    # links dangle and the game exits before writing its config or logs
+    - "{{ dg_hl360_user_dir }}/user"
+    - "{{ dg_hl360_user_dir }}/logs"
+    - "{{ dg_hl360_compatdata }}"
+    - "{{ dg_box_home }}/bin"
+
+# The ZIP stores entry names as "FM4\\file"; 7z/unzip keep those literal on
+# POSIX, so normalise the separators with the repo helper.
+- name: Extract the player build
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ dg_project_root }}/scripts/zip-extract-posix.py"
+      - "{{ dg_hl360_asset_path }}"
+      - "{{ dg_hl360_release_dir }}"
+    # The last release files include the temporal upscaler runtimes. Checking
+    # only fm4.exe let a partial extraction pass when a Windows-style folder
+    # entry interrupted the old helper.
+    creates: "{{ dg_hl360_app_dir }}/upscalers/fidelityfx/1.1.4/amd_fidelityfx_vk.dll"
+
+# The launcher keeps settings, profiles and the extracted game beside itself;
+# point them at a stable directory so a version bump does not lose saves.
+- name: Keep player data across versions
+  ansible.builtin.file:
+    path: "{{ dg_hl360_app_dir }}/{{ item }}"
+    src: "{{ dg_hl360_user_dir }}/{{ item }}"
+    state: link
+    force: true
+  loop:
+    - user
+    - logs
+
+# fm4.user.toml holds the launcher's Graphics/Controls choices. Move it into
+# persistent user storage so a player release cannot reset those choices.
+- name: Check for existing FM4 player settings
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_settings_path }}"
+  register: _hl360_user_toml
+
+- name: Check previous release player settings
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_install_dir }}/releases/v0.3.9/FM4/fm4.user.toml"
+  register: _hl360_previous_toml
+
+- name: Preserve previous FM4 player choices
+  ansible.builtin.copy:
+    src: "{{ dg_hl360_install_dir }}/releases/v0.3.9/FM4/fm4.user.toml"
+    dest: "{{ dg_hl360_settings_path }}"
+    remote_src: true
+    mode: "0644"
+  when: not _hl360_user_toml.stat.exists and _hl360_previous_toml.stat.exists
+
+- name: Seed the FM4 player settings
+  ansible.builtin.template:
+    src: fm4.user.toml.j2
+    dest: "{{ dg_hl360_settings_path }}"
+    mode: "0644"
+  when: not _hl360_user_toml.stat.exists and not _hl360_previous_toml.stat.exists
+
+- name: Link persistent FM4 player settings into this release
+  ansible.builtin.file:
+    path: "{{ dg_hl360_app_dir }}/fm4.user.toml"
+    src: "{{ dg_hl360_settings_path }}"
+    state: link
+    force: true
+
+# game_data_root/user_data_root name this release directory; left alone they
+# keep pointing at the previous version's tree after a bump.
+- name: Keep the FM4 data roots on this install
+  ansible.builtin.lineinfile:
+    path: "{{ dg_hl360_settings_path }}"
+    regexp: "^{{ item.key }} = "
+    line: "{{ item.key }} = '{{ item.value }}'"
+  loop:
+    - key: game_data_root
+      value: "{{ dg_hl360_game_dir_win }}"
+    - key: user_data_root
+      value: "{{ dg_hl360_user_dir_win }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+# The launcher rewrites this file from its in-memory copy on exit, which is how
+# the tuned baseline got reverted once while a second instance was open. These
+# are the keys the role owns; everything else in the file is the player's.
+- name: Keep the FM4 graphics baseline
+  ansible.builtin.lineinfile:
+    path: "{{ dg_hl360_settings_path }}"
+    regexp: "^{{ item.key }} = "
+    line: "{{ item.key }} = {{ item.value }}"
+  loop: "{{ dg_hl360_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+# Keyboard/mouse mode takes over the d-pad and left stick from the pad.
+- name: Keep FM4 keyboard/mouse mode off
+  ansible.builtin.lineinfile:
+    path: "{{ dg_hl360_settings_path }}"
+    regexp: '^mnk_mode = '
+    line: 'mnk_mode = false'
+
+- name: Check whether the matching USA Rev 1 discs are present
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    checksum_algorithm: md5
+  loop:
+    - "{{ dg_hl360_disc1 }}"
+    - "{{ dg_hl360_disc2 }}"
+  register: _hl360_discs
+  failed_when: false
+
+- name: Record whether the verified USA Rev 1 discs are available
+  ansible.builtin.set_fact:
+    _hl360_discs_ok: >-
+      {{ (_hl360_discs.results | selectattr('stat.checksum', 'defined')
+          | map(attribute='stat.checksum') | list)
+         == [dg_hl360_disc1_md5, dg_hl360_disc2_md5] }}
+
+- name: Report the disc requirement
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'USA Rev 1 discs verified — the game tree is installed from them.'
+         if _hl360_discs_ok
+         else 'Discs do NOT match the supported USA Rev 1 images (Disc 1 md5 '
+              ~ dg_hl360_disc1_md5 ~ ', Disc 2 md5 ' ~ dg_hl360_disc2_md5
+              ~ '). The port is installed, but the game needs those discs. '
+              ~ 'Local Disc 1/Disc 2 are '
+              ~ (_hl360_discs.results | map(attribute='stat.checksum', default='missing') | join(' / ')) }}
+
+# --- Game data -------------------------------------------------------------
+# The port's launcher keeps its own install receipts and refuses to extract
+# when the tree was produced some other way, so the role drives fm4tool.exe
+# directly. It sees the box filesystem as Z:.
+
+- name: Check for a shared FM4 game tree
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_game_dir }}/default.xex"
+  register: _hl360_shared_game
+
+- name: Check for the previous release game tree
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_install_dir }}/releases/v0.3.9/FM4/game/default.xex"
+  register: _hl360_previous_game
+
+- name: Move the verified extracted game tree to stable storage
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ dg_hl360_install_dir }}/releases/v0.3.9/FM4/game"
+      - "{{ dg_hl360_game_dir }}"
+    creates: "{{ dg_hl360_game_dir }}/default.xex"
+  when: not _hl360_shared_game.stat.exists and _hl360_previous_game.stat.exists
+
+- name: Keep the previous release usable after moving its game tree
+  ansible.builtin.file:
+    path: "{{ dg_hl360_install_dir }}/releases/v0.3.9/FM4/game"
+    src: "{{ dg_hl360_game_dir }}"
+    state: link
+  when: _hl360_previous_game.stat.exists
+
+- name: Check the extracted Disc 1 game tree
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_game_dir }}/default.xex"
+  register: _hl360_game
+
+- name: Stage Disc 1 locally before extraction
+  ansible.builtin.copy:
+    src: "{{ dg_hl360_disc1 }}"
+    dest: "{{ dg_hl360_disc1_staged }}"
+    remote_src: true
+    mode: "0644"
+  when: _hl360_discs_ok | bool and not _hl360_game.stat.exists
+
+- name: Create the game directory
+  ansible.builtin.file:
+    path: "{{ dg_hl360_game_dir }}"
+    state: directory
+    mode: "0755"
+  when: _hl360_discs_ok | bool and not _hl360_game.stat.exists
+
+- name: Extract Disc 1 with fm4tool
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - sh
+      - -c
+      - >-
+        cd "{{ dg_hl360_app_dir }}"
+        && STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_hl360_steam_root }}"
+        STEAM_COMPAT_DATA_PATH="{{ dg_hl360_compatdata }}"
+        SteamAppId=0 SteamGameId=0 WINEDEBUG=-all
+        "{{ dg_hl360_proton }}" run ./fm4tool.exe iso
+        "{{ dg_hl360_disc1_win }}" "{{ dg_hl360_game_dir_win }}"
+    creates: "{{ dg_hl360_game_dir }}/default.xex"
+  when: _hl360_discs_ok | bool
+
+- name: Link the shared game tree beside this player release
+  ansible.builtin.file:
+    path: "{{ dg_hl360_app_dir }}/game"
+    src: "{{ dg_hl360_game_dir }}"
+    state: link
+  when: _hl360_discs_ok | bool
+
+- name: Check the extracted Disc 2 content
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_disc2_extract }}/default.xex"
+  register: _hl360_disc2_tree
+
+- name: Check Disc 1 tree after any extraction
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_game_dir }}/default.xex"
+  register: _hl360_game_after
+
+- name: Check installed Disc 2 content packages
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_dlc_marker }}"
+  register: _hl360_dlc
+
+# fm4tool runs inside the game's Proton prefix: `proton run` also waits for the
+# prefix to go idle, so a running game would hang the extraction indefinitely.
+- name: Find a running FM4 instance
+  ansible.builtin.command:
+    cmd: pgrep -x fm4.exe
+  register: _hl360_running
+  failed_when: false
+  changed_when: false
+  when: not _hl360_game.stat.exists or not _hl360_dlc.stat.exists
+
+- name: Require the FM4 game to be closed
+  ansible.builtin.assert:
+    that: _hl360_running.stdout | default('') == ''
+    fail_msg: >-
+      Forza Motorsport 4 is running. The disc tools share its Proton prefix,
+      so close the game before installing the disc content.
+  when: not _hl360_game.stat.exists or not _hl360_dlc.stat.exists
+
+- name: Stage Disc 2 locally before extraction
+  ansible.builtin.copy:
+    src: "{{ dg_hl360_disc2 }}"
+    dest: "{{ dg_hl360_disc2_staged }}"
+    remote_src: true
+    mode: "0644"
+  when: _hl360_discs_ok | bool and not _hl360_dlc.stat.exists and not _hl360_disc2_tree.stat.exists
+
+- name: Extract Disc 2 with fm4tool
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - sh
+      - -c
+      - >-
+        cd "{{ dg_hl360_app_dir }}"
+        && STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_hl360_steam_root }}"
+        STEAM_COMPAT_DATA_PATH="{{ dg_hl360_compatdata }}"
+        SteamAppId=0 SteamGameId=0 WINEDEBUG=-all
+        "{{ dg_hl360_proton }}" run ./fm4tool.exe iso
+        "{{ dg_hl360_disc2_win }}" "{{ dg_hl360_disc2_extract_win }}"
+    creates: "{{ dg_hl360_disc2_extract }}/default.xex"
+  when: _hl360_discs_ok | bool and not _hl360_dlc.stat.exists
+
+# Registers the four licensed Disc 2 packages (and their headers) in the user
+# root. Marketplace car packs are not supported by the port at all.
+- name: Install the Disc 2 content packages
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - sh
+      - -c
+      - >-
+        cd "{{ dg_hl360_app_dir }}"
+        && STEAM_COMPAT_CLIENT_INSTALL_PATH="{{ dg_hl360_steam_root }}"
+        STEAM_COMPAT_DATA_PATH="{{ dg_hl360_compatdata }}"
+        SteamAppId=0 SteamGameId=0 WINEDEBUG=-all
+        "{{ dg_hl360_proton }}" run ./fm4tool.exe install-dlc
+        "{{ dg_hl360_game_dir_win }}" "{{ dg_hl360_disc2_extract_win }}"
+        "{{ dg_hl360_user_dir_win }}"
+    creates: "{{ dg_hl360_dlc_marker }}"
+  when: _hl360_discs_ok | bool and _hl360_game_after.stat.exists
+
+# Both ISOs can be copied again from the owned NAS images if a rebuild needs
+# them. The extracted Disc 2 tree is only a temporary input to install-dlc.
+- name: Check that Disc 1 and Disc 2 content are installed
+  ansible.builtin.stat:
+    path: "{{ dg_hl360_dlc_marker }}"
+  register: _hl360_dlc_after
+
+- name: Remove local disc staging after successful installation
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ dg_hl360_disc1_staged }}"
+    - "{{ dg_hl360_disc2_staged }}"
+    - "{{ dg_hl360_disc2_extract }}"
+  when: _hl360_game_after.stat.exists and _hl360_dlc_after.stat.exists
+
+- name: Install the FM4 port launcher
+  ansible.builtin.template:
+    src: hl360-fm4.sh.j2
+    dest: "{{ dg_hl360_launcher }}"
+    mode: "0755"
+
+- name: Render the FM4 port desktop entry
+  ansible.builtin.template:
+    src: hl360-fm4.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-fm4-recomp.desktop"
+    mode: "0644"
+
+- name: Install the FM4 port host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _hl360_host
+  changed_when: >-
+    'installed ' in _hl360_host.stdout or
+    'removed stale ' in _hl360_host.stdout

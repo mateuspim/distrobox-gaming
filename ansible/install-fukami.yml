@@ -1,0 +1,7 @@
+---
+- name: Install Fukami for Ridge Racer V
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - install_fukami

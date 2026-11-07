@@ -1,0 +1,192 @@
+---
+- name: Require the exact GT2 v1.0 disc image
+  ansible.builtin.stat:
+    path: "{{ dg_gt2_cue }}"
+  register: _gt2_cue
+- ansible.builtin.assert:
+    that: _gt2_cue.stat.isreg is defined and _gt2_cue.stat.isreg
+    fail_msg: >-
+      GT2 PC Port needs Gran Turismo 2 (USA) Simulation Mode v1.0 (SCUS-94488,
+      redump disc/85, 680497104 bytes, md5 7f3e9b95...) at dg_gt2_cue. Rev 1,
+      Rev 2 (Greatest Hits) and patched v1.2 dumps are refused by design.
+
+- name: Verify the staged kit ZIP
+  ansible.builtin.stat:
+    path: "{{ dg_gt2_zip }}"
+    checksum_algorithm: sha256
+  register: _gt2_zip
+- ansible.builtin.assert:
+    that: _gt2_zip.stat.checksum | default('') == dg_gt2_zip_sha256
+    fail_msg: "Staged kit ZIP missing or wrong sha256 at {{ dg_gt2_zip }}."
+
+- name: Create the GT2 PC Port directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_gt2_release_dir }}"
+    - "{{ dg_gt2_user_dir }}/cards"
+    - "{{ dg_gt2_user_dir }}/shots"
+    - "{{ dg_box_home }}/bin"
+
+- name: Extract the kit into its versioned release directory
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - sh
+      - -c
+      - >-
+        cd '{{ dg_gt2_release_dir }}' &&
+        7z x -y '{{ dg_gt2_zip }}' >/dev/null &&
+        cp -a GT2-PC-Port-Mod-Kit-{{ dg_gt2_version }}/. . &&
+        rm -rf GT2-PC-Port-Mod-Kit-{{ dg_gt2_version }}
+    creates: "{{ dg_gt2_release_dir }}/psx-play.exe"
+
+- name: Keep the blank memory card in the stable user dir
+  ansible.builtin.copy:
+    src: "{{ dg_gt2_release_dir }}/cards/blank.mcd"
+    dest: "{{ dg_gt2_user_dir }}/blank.mcd"
+    remote_src: true
+    force: false
+    mode: "0644"
+
+# 7z extracts the kit's PE executables mode 0644; the launcher guards on the
+# executable bit (and any future direct exec needs it), so set it explicitly.
+- name: Mark the kit executables executable
+  ansible.builtin.file:
+    path: "{{ dg_gt2_release_dir }}/{{ item }}"
+    mode: "0755"
+  loop:
+    - psx-play.exe
+    - gt2-course.exe
+    - gt2-scenec.exe
+    - gt2-trackc.exe
+
+- name: Keep saves and screenshots across kit upgrades
+  ansible.builtin.file:
+    path: "{{ dg_gt2_release_dir }}/{{ item.name }}"
+    src: "{{ dg_gt2_user_dir }}/{{ item.src }}"
+    state: link
+    force: true
+  loop:
+    - { name: cards, src: cards }
+    - { name: shots, src: shots }
+
+- name: Seed the memory card on first install
+  ansible.builtin.copy:
+    src: "{{ dg_gt2_user_dir }}/blank.mcd"
+    dest: "{{ dg_gt2_user_dir }}/cards/card1.mcr"
+    remote_src: true
+    force: false
+    mode: "0644"
+
+# One-time install from the disc: fingerprints the cue/bin (v1.0 only) and
+# copies the game into data/ (~2 GB, ~1 min under Proton).
+- name: Install the game from the v1.0 disc
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - sh
+      - -c
+      - >-
+        cd '{{ dg_gt2_release_dir }}' &&
+        export STEAM_COMPAT_CLIENT_INSTALL_PATH='{{ dg_gt2_steam_root }}' &&
+        export STEAM_COMPAT_DATA_PATH='{{ dg_gt2_compatdata }}' &&
+        export SteamAppId=0 SteamGameId=0 VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/nvidia_icd.json &&
+        '{{ dg_gt2_proton }}' run ./psx-play.exe
+        'Z:\\{{ dg_gt2_cue | replace("/", "\\") }}'
+        --install-only
+        --data 'Z:\\{{ dg_gt2_release_dir | replace("/", "\\") }}\data'
+        --modules 'Z:\\{{ dg_gt2_release_dir | replace("/", "\\") }}\modules'
+    creates: "{{ dg_gt2_release_dir }}/data/manifest.json"
+
+- name: Verify the install matches the disc
+  ansible.builtin.command:
+    argv:
+      - distrobox-enter
+      - -n
+      - "{{ dg_box_name }}"
+      - --
+      - sh
+      - -c
+      - >-
+        cd '{{ dg_gt2_release_dir }}' &&
+        export STEAM_COMPAT_CLIENT_INSTALL_PATH='{{ dg_gt2_steam_root }}' &&
+        export STEAM_COMPAT_DATA_PATH='{{ dg_gt2_compatdata }}' SteamAppId=0 SteamGameId=0 &&
+        '{{ dg_gt2_proton }}' run ./psx-play.exe
+        'Z:\\{{ dg_gt2_cue | replace("/", "\\") }}'
+        --install-only --verify-data
+        --data 'Z:\\{{ dg_gt2_release_dir | replace("/", "\\") }}\data'
+        --modules 'Z:\\{{ dg_gt2_release_dir | replace("/", "\\") }}\modules'
+  register: _gt2_verify
+  changed_when: false
+- ansible.builtin.assert:
+    that: _gt2_verify.rc == 0
+    fail_msg: "psx-play verify-data failed: {{ _gt2_verify.stdout[-400:] }}"
+
+# psx-play is an SDL app: WineBus has to expose the pads through SDL rather
+# than raw hidraw/evdev. Query first so a repeat run reports no change.
+- name: Route controllers through SDL (winebus)
+  ansible.builtin.shell: |
+    {{ dg_in_box }} bash -c '
+      export WINEPREFIX="{{ dg_gt2_compatdata }}/pfx"
+      want=$(printf "0x%x" {{ item.value }})
+      cur=$(wine reg query "HKCU\\Software\\Wine\\WineBus" /v "{{ item.name }}" 2>/dev/null \
+            | awk "/{{ item.name }}/ {print \$NF}" | tr -d "\r")
+      if [ "$cur" != "$want" ]; then
+        wine reg add "HKCU\\Software\\Wine\\WineBus" /v "{{ item.name }}" /t REG_DWORD /d "{{ item.value }}" /f >/dev/null
+        wineserver -w || true
+        printf "%s\n" changed
+      fi
+    '
+  loop: "{{ dg_gt2_winebus_registry }}"
+  loop_control:
+    label: "{{ item.name }}={{ item.value }}"
+  register: _gt2_winebus
+  changed_when: "'changed' in _gt2_winebus.stdout"
+
+# Gamepad bridge: gilrs/WGI never fires under Wine (kit issue #1), so map the
+# pad onto the game's own keyboard controls with AntiMicroX (XWayland target).
+- name: Install the pad-to-keyword bridge package
+  ansible.builtin.command:
+    argv: "{{ ['distrobox-enter', '-n', dg_box_name, '--', 'sudo', 'pacman', '-S', '--noconfirm', '--needed'] + ['antimicrox'] }}"
+  register: _gt2_bridge_pkg
+  changed_when: "'nothing to do' not in _gt2_bridge_pkg.stdout"
+  when: dg_gt2_pad_bridge | bool
+
+- name: Install the bridge profile
+  ansible.builtin.copy:
+    src: gt2-pad-bridge.amgp
+    dest: "{{ dg_gt2_bridge_profile }}"
+    mode: "0644"
+  when: dg_gt2_pad_bridge | bool
+
+- name: Install the GT2 PC Port launcher
+  ansible.builtin.template:
+    src: gt2-pc-port.sh.j2
+    dest: "{{ dg_gt2_launcher }}"
+    mode: "0755"
+
+- name: Render the GT2 PC Port desktop entry
+  ansible.builtin.template:
+    src: gt2-pc-port.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-gt2-pc-port.desktop"
+    mode: "0644"
+
+- name: Install the GT2 PC Port host desktop entry
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _gt2_host
+  changed_when: >-
+    'installed ' in _gt2_host.stdout or
+    'removed stale ' in _gt2_host.stdout

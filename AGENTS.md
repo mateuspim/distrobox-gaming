@@ -16,9 +16,25 @@ Every new or updated game install MUST keep its `dg_ogm_games` entry current:
 `github` for GitHub-backed projects, otherwise `web_url`/`update_regex` for
 web-page update badges where a pollable page exists (see the field docs in
 `ogm.yml` and `docs/ogm-launcher.md`; verify regexes against the live page).
+A template stem with no `dg_ogm_games` entry renders **no** `X-OGM-*` block, so
+the game installs, appears in the applications menu, and is silently missing
+from omarchy-games-menu. Adding the role or the `.desktop.j2` is therefore not
+enough — registering the stem is the same commit's work. `scripts/check-ogm-coverage.sh`
+fails on an unregistered stem, a duplicate `desktop_id`, or a rendered entry
+without its marker; run it before calling a game install finished.
 The opt-in `ogm_catalog` role (tag `ogm`) renders the same data to a
 `catalog.d` fallback fragment. See `docs/ogm-launcher.md`.
-Focused setup notes are in `docs/`. The native macOS baseline is a separate
+The PC side of the library (`ROMS_FINAL/PC`) is bucketed as `ports/`,
+`games/`, `mods/`, `releases/` and `tools/`; see `docs/pc-library.md`.
+**Nothing stays in the `ROMS_FINAL/PC` root.** Downloads land there by
+default, so every install — and every asset you notice while working on
+one — must be filed before the task is done: ports, recomps and decomps
+(and their source archives) in `ports/`, PC game installs and disc
+extracts in `games/`, mods/texture packs/romhacks in `mods/`, upstream
+release assets a role verifies in `releases/`, utilities in `tools/`.
+Ansible paths must always name a bucket (`…/PC/releases/foo.zip`), never
+the root. `scripts/check-pc-layout.sh <ROMS_FINAL/PC>` reports anything
+left unfiled. Focused setup notes are in `docs/`. The native macOS baseline is a separate
 stack under `macos/` and shares no code with the Linux tree — keep macOS
 changes there and Linux changes out of it.
 
@@ -32,6 +48,9 @@ ansible-playbook --syntax-check site.yml   # validate playbook syntax
 ansible-playbook install-sonic-p06.yml     # run optional P-06 setup
 desktop-file-validate ../config/desktop/rendered/*.desktop
 ../scripts/check-box-sonames.sh            # after box updates: sweep for soname-broken AUR binaries
+../scripts/check-pc-layout.sh "$DG_PC_ROOT"  # after any PC install: flag unfiled PC-root entries
+../scripts/check-ogm-coverage.sh           # after any game install: ogm marker/metadata coverage
+../scripts/check-launcher-wrappers.sh "$DG_BOX_HOME/bin" "$DG_DESKTOP_RENDER_DIR"  # wine launchers must be boxed
 ```
 
 **After every box package update** (`pacman -Syu` in the box), run
@@ -66,7 +85,75 @@ overrides in `ansible/host_vars/localhost.yml.example`. Personal paths are
 acceptable only as default values in central variables or as clearly historical
 examples in archival docs.
 
+## Reproducibility (every install)
+
+**Every install is code in this repo, not a sequence of commands run once on
+this box.** A new emulator, port, recomp, Wine game, mod set, fix or tool is
+only finished when re-running the repo produces it again from a clean box:
+
+- the logic lives in `ansible/roles/install_<name>/` with a thin
+  `ansible/install-<name>.yml` playbook; opt-in features carry a `never` tag in
+  `site.yml`, anything the default rebuild needs is on the plain path;
+- every download is pinned in `ansible/group_vars/all/<name>.yml` by version,
+  URL and SHA256, recorded as an **AUTO** row in `docs/external-installers.md`,
+  and staged in `ROMS_FINAL/PC/releases/` — not left in a browser download
+  folder or a shell history;
+- paths come from `dg_*` variables, so another machine only edits
+  `host_vars/localhost.yml`;
+- when a step genuinely cannot be automated (a GUI-only preparation inside a
+  Windows installer, a user-owned dump), the role fails or skips with the exact
+  instructions and `docs/<name>.md` records it. A step that exists only on this
+  machine, undocumented, is a bug — backfill a role for it or write down why it
+  cannot be one;
+- the change ships with its docs and inventory rows (see *Documentation &
+  Inventory Updates*) and a second `ansible-playbook` run reports `changed=0`
+  (or only the known Wine-registry churn).
+
+### AppImages inside the box (hard rule)
+
+The migrated `gaming` runtime keeps Docker's default capability bounding set,
+which excludes `CAP_SYS_ADMIN`, so an AppImage cannot mount itself there
+(`fusermount3` is setuid, but `mount` returns `Operation not permitted`; without
+the device node it is `fuse: device not found`). `dg_box_fuse: true` in
+`group_vars/all/main.yml` recreates the box with `--device /dev/fuse --cap-add
+SYS_ADMIN` if you ever want mounting back — that hands the container a
+near-root capability, which is what the migration removed. Default: off. Every
+launcher that executes an AppImage *inside* the box must either export
+`APPIMAGE_EXTRACT_AND_RUN=1` before the exec (the runtime extracts to
+`/tmp/appimage_extracted_*` and runs from there) or, for builds whose runtime
+predates that flag, unpack once with `--appimage-extract` and exec the
+`AppRun` — the Lichii role does the latter. Launchers that run on the **host**
+keep the plain exec (the host has FUSE). Verify with a bounded CLI probe such
+as `--version` (`xemu`, `shadps4`, `eden`, `rpcs3`) rather than launching a game.
+
 ## Reuse And Wine Game Patterns
+
+### Wine runs inside the box (hard rule — this broke twice)
+
+Wine (`wine`, `wineboot`, `wineserver`) exists **only inside the gaming
+distrobox**. A host-side launcher that calls it bare dies with
+`wine: not found` (rc=127) — exactly how RyGT shipped — and a desktop entry
+that wraps a script which *also* wraps itself fails differently: the nested
+`distrobox-enter` does not exist inside the box, so the game starts from a
+terminal but never from the menu (how GT4 and RyGT both broke on 2026-10-28).
+When writing or touching a launcher:
+
+- **Make every Wine launcher re-entrant** and let the desktop entry point at
+  the script directly (`Exec={{ dg_*_bin }}`, no outer `distrobox-enter`):
+
+  ```sh
+  if [ ! -e /.dockerenv ]; then
+    exec distrobox-enter -n {{ dg_box_name }} -- sh "$0" "$@"
+  fi
+  # … wine runs here, inside the box
+  ```
+
+- GE-Proton launchers run **from the host** on purpose (Proton carries its own
+  runtime; set `STEAM_COMPAT_*` and call the `proton` binary) — do not box them.
+- Scripts that only ES-DE runs (inside the box already) are exempt.
+- After any launcher change, run
+  `scripts/check-launcher-wrappers.sh [bin dir] [rendered desktop dir]` — it
+  flags bare host-side Wine **and** entry/script double-wraps, and must be clean.
 
 Avoid duplicated Ansible logic. Before adding a new role or playbook, check
 whether an existing role can be extended with data, variables, or a small shared
@@ -85,6 +172,147 @@ per-game virtual controller mapping over ad hoc registry toggles when modern
 controller triggers show up as permanently pressed axes. Document each game's
 controller policy in `docs/pc-racing.md`.
 
+## Graphics: Always Max Out (every install)
+
+Every game here runs on the same machine — an RTX 5090 driving 4K displays — so
+the default answer to "which preset?" is **the highest one that still holds a
+stable frame rate**. Study the game's graphics settings while installing it, not
+after a disappointing first launch, and apply the ceiling as part of the role:
+
+- **Find the knobs first.** Look for a settings file, launch flags, or
+  environment variables the installer can preconfigure, then read the game's /
+  port's own docs and issue tracker for combinations known to break (for FM4:
+  async shader compilation with readback off, guest `vsync` off, a 4K *guest*
+  video mode; for GT2: widescreen hack fighting the widescreen patch). Prefer
+  documented-safe maximal settings over guesswork, and never adopt a
+  "better" setting that upstream lists as artifact-prone.
+- **Target:** 3840×2160 output; native render resolution where the engine
+  supports it, render-scale + downscale where it does not; highest texture,
+  model, shadow and draw-distance tier; 16× anisotropic filtering; the engine's
+  best-supported anti-aliasing (MSAA/SMAA/TAA, whichever it implements); and the
+  highest stable frame rate — at least 60 FPS, higher when the game's physics,
+  timing and pacing are built for it.
+- **Keep it reproducible.** The chosen values live in `dg_*` variables or role
+  tasks. Seed a settings file only when it does not exist, or enforce only the
+  keys the role owns, so a rerun reports `changed=0` and the player's later
+  in-game changes survive.
+- **Settings that only exist in-game** (or behind a GUI toggle the installer
+  cannot reach) are recorded in `docs/<game>.md` with the exact menu path and
+  value, together with what was deliberately left at default and why.
+- **Report the cap, not just a number.** A cap (60 / 120 / uncapped) is a
+  setting; measured gameplay FPS is a result. Respect engine timing caps, never
+  run an uncapped/unpaced debug mode just to quote a higher figure, and never
+  stack competing VSync/pacer controls that cause uneven cadence or change game
+  speed.
+- **Verify when feasible** — swapchain/window resolution in the log, the preset
+  shown in the settings UI, AA/AF and fullscreen in a screenshot — and say
+  plainly when a setting could not be verified.
+
+Never leave a game on the installer's "Medium"/"Auto" default when a
+higher setting is known-good here, and never trade a stable frame rate for a
+higher preset: pick the highest settings that still hold the target, not the
+highest numbers on the menu.
+
+## PC Port, Decompilation, and Recompilation Defaults
+
+For every PC port, decompilation, or recompilation, inspect settings that can be
+edited outside the running game and configure them as part of installation when
+practical, at the ceiling described in *Graphics: Always Max Out* above. Check
+the actual FPS cap, interpolation, VSync, and frame-pacing settings, and select
+at least 60 FPS or a higher stable target when supported. Distinguish the
+configured cap from measured gameplay FPS. Keep these choices reproducible in
+`dg_*` variables or role tasks, preserve saves and existing user customization,
+and document any setting that can only be changed inside the game.
+
+## GitHub Release Updates
+
+For every GitHub-backed game, port, recompilation, or emulator release update,
+read the new release notes and any changed upstream setup, performance, and
+configuration guidance before bumping the pin. Check for new launch options,
+settings, environment variables, cache behavior, graphics and frame-pacing
+recommendations, and controller fixes. Compare them with our role and current
+`dg_*` values; apply useful, safe improvements reproducibly, and document the
+chosen settings and any important limitations in the game's page. Verify the
+focused install and its second-run idempotence. A version bump alone does not
+finish a release update.
+
+## Gamepad: Always Supported (every install)
+
+Every game here is played from the couch with a controller (the reference device
+on this box is an **8BitDo Ultimate 2**, USB `2dc8:310b`), so a game with no
+working pad input is not a finished install. Study how the game reads input
+before wiring anything up, and make the pad work as part of the role:
+
+- **Find out how the game reads input.** Native SDL/XInput/RawInput, an
+  emulator/libretro core mapping, a port's own controller profile, or
+  keyboard-only. Read the game's docs, launcher options and issue tracker for the
+  supported backends and their known breakage: Wine's **Windows.Gaming.Input**
+  enumerates a pad but never fires `GamepadAdded` (breaks hl360 FM4 and GT2's
+  gilrs — the fix there is `WINEDLLOVERRIDES="windows.gaming.input=d"`), legacy
+  DirectInput games report modern triggers as permanently pressed axes (Xidi in
+  the PC racing pipeline), and some ports only poll one pad or want a specific
+  mapping mode.
+- **Prefer the game's own pad support**, then a launcher/emulator mapping, and
+  only then a keyboard bridge (AntiMicroX for GT2) — and record which of the
+  three the install relies on.
+- **Configure it in the role, not by hand.** Bind every control the game uses
+  (sticks, triggers, shoulders, face buttons, Start/Back, d-pad, rumble where
+  supported), select the per-game profile from `dg_*` data, and keep the
+  mapping idempotent (`changed=0` on a rerun). Never leave keyboard/mouse mode
+  or a "keyboard as pad" default on: it silently steals the d-pad and left stick.
+- **Prove the pad is seen**: the device should appear in the port/emulator log
+  (SDL device add, `/dev/input`, input settings) and the mapping should be
+  exercised in-game when feasible. Say explicitly when a control could not be
+  verified rather than implying it works.
+- **When native support is missing or broken**, ship the documented workaround
+  (mapping file, bridge, DLL override), link the upstream issue, and note which
+  controls it cannot cover.
+- **Document the controller policy** in `docs/<game>.md` — and in
+  `docs/pc-racing.md` for the Wine racing titles — including anything that can
+  only be changed in-game.
+
+## Save Data: Every Install Registers Its Paths
+
+`dg_save_sets` in `ansible/group_vars/all/backups.yml` is the only place the
+backup service learns what to mirror (see `docs/save-backups.md`). An install is
+not finished until its save data is listed there — a game whose saves are
+missing from that list is silently unprotected.
+
+- **Find where the game actually writes**, not where the README says: run it
+  once and look for the config dir, user-data dir, memory card, or loose
+  `.sav`/`.srm`/`.eep`/`.bin`/`.xml` save files beside the executable.
+- **Add a `dg_save_sets` entry**: a unique `name` (no spaces) and `src`, which
+  is a box-home-relative path, an absolute path for the native ports that run
+  on the *host* rather than in the box, or `file:` for one loose save file. A
+  set may list several sources and they all mirror into the same `<name>`
+  directory.
+- **Point at save data only.** Leave out what a rebuild re-derives — extracted
+  discs, texture packs, shader caches, ROM caches. Dusk keeps 6 GB of textures
+  beside its 36 KB memory card; Fukami a 461 MB extracted disc beside `mc/`.
+- **Verify both ends**: re-run `ansible-playbook site.yml --tags backup_saves`
+  to re-render the manifest, then
+  `~/.local/bin/backup-saves --dry-run` on the host and confirm the new set
+  appears (or reports "no local data" until the game is first played).
+
+## Documentation & Inventory Updates
+
+Every new game install (and every patch, move, or removal of a game) must land
+with its documentation and inventory in the same change — an install without
+its inventory edit is incomplete. Concretely: a `docs/<game>.md` page (or an
+update to the existing one), a row in `docs/sources.md` and the matching
+section of `docs/external-installers.md` whenever an external artifact is
+fetched or staged, a current `dg_ogm_games` entry in
+`ansible/group_vars/all/ogm.yml`, and, when a required dump moves, an update to
+the `dg_*` path variable or `docs/setup-assets.md` that references it. When
+asked to install something that is already present and documented, verify the
+inventory still matches reality instead of skipping the check.
+
+A PC install additionally starts with the asset's placement: if the archive was
+downloaded to the `ROMS_FINAL/PC` root (the usual case), move it into the right
+bucket first, then point the role and docs at `…/PC/<bucket>/…`. An install that
+leaves a file in the PC root is not finished, and
+`scripts/check-pc-layout.sh` must report a clean root.
+
 ## Coding Style & Naming Conventions
 
 Use YAML with two-space indentation. Prefix project variables with `dg_`.
@@ -100,12 +328,54 @@ confirm the second run reports no unexpected changes.
 
 ## Temporary Resources & Cleanup
 
+The `gaming` name must resolve to the restricted Docker container produced by
+`migrate_box` after package bootstrap. Do not recreate it directly with
+`distrobox create`: that grants privilege, the real host home, and a writable
+`/run/host` root. The privileged Distrobox that preceded it was
+removed on 2026-11-06 once normal play was verified; rollback is now
+`migrate_gaming_box.sh --recreate` (`dg_box_recreate=true`), which rebuilds from
+a snapshot of the current container — all state lives in the bind-mounted box
+home, so the container itself is disposable. Keep NAS game
+assets read-only and the save-backup NAS unmounted. A per-game runtime such as
+`install_lichii_sandbox` can narrow access further. Save backup and restore
+run on the host through `~/.local/bin/{backup-saves,restore-saves}`; see
+`docs/game-runtime-security.md` and `docs/save-backups.md`.
+
 Track temporary files, extraction directories, test profiles, source checkouts,
 and Docker resources created while working. After verification, remove scratch
 resources that the playbook, a future rebuild, or the user will not use. Check
 the exact path and its contents before removal; never clean by a broad glob.
 When adding an installer, keep large downloads or extracted copies only if the
 role uses them on later runs or they are needed to reproduce the install.
+
+Track every process started for testing, including processes launched inside the
+gaming distrobox. Run interactive or headless game checks with a finite timeout
+**inside the container**, with a supervisor that waits for the actual game
+process and cleans its dedicated Wine prefix on success, failure, and
+interruption. Record the test's PID, process name, start time, parent, and
+container. Do not put `timeout` only around `distrobox enter`, or pipe a live
+launcher into `head` / `rg -m`: terminating the outer wrapper can orphan Wine
+children under `containerd-shim`.
+For host GE-Proton tests, Wine services and the game can detach into separate
+process groups. After the supervisor stops the launcher, scan `/proc/*/environ`
+for the test's exact `STEAM_COMPAT_DATA_PATH`, then terminate and reap only
+those task-created PIDs. Killing the launcher's process group alone is not
+cleanup.
+
+Before finishing, inspect the full process table by exact game/emulator name
+and start time **and** by command line/environment. Include `STAT` and look for
+`Z` (defunct) entries: zombies have lost their command line and environment,
+so a `WINEPREFIX` scan misses them. Verify that each task-created PID and child
+has been reaped, not merely stopped; neither a timeout exiting nor
+`wineserver -k` proves this. A `Z` **process leader can still have live
+threads**: inspect `/proc/<pid>/task/*/status` before calling it an inert
+zombie. If any threads are live, signal the exact task-created process ID
+(SIGTERM, then SIGKILL if needed) and verify the entire thread group vanishes.
+Do not assume a signal to a defunct leader is ineffective. If every thread is
+truly defunct and the shared container shim does not reap them, report that
+separately and arrange a safe restart when the container is idle. Never
+restart `gaming` or stop another game to hide a zombie, and never claim
+cleanup is complete while task-created processes or live threads remain.
 
 This host runs containers and build jobs for other projects. Inspect Docker
 containers, images, volumes, and build cache before cleanup, and remove only

@@ -115,8 +115,14 @@ Current per-game controller handling:
   conflict with the Tweaks loader.
 - Sega Rally Revo uses `Map Controllers=1`, because this game needs Wine's
   SDL-backed XInput device to see the 8BitDo controller.
-- Sega Rally 2 is not managed here — it is a Wine dead-end; see
-  https://github.com/akitaonrails/distrobox-gaming/issues/3 .
+- Sega Rally 2's original European PC release is managed by the opt-in
+  `install_sega_rally_2` role. It uses the patcher's XInput support and Wine's
+  SDL controller mapping. The 25th-Anniversary repack still fails the exact
+  build check; see [setup](sega-rally-2.md).
+- Scud Race PC uses the port's SDL/XInput pad input, with
+  `Map Controllers=1`, `Enable SDL=1`, and duplicate raw input disabled in its
+  dedicated prefix. RT/LT drive gas/brake; A/X shift; Y changes view. See
+  [setup](scud-race.md) for the remaining hands-on input check.
 
 If `evdev-joystick --listdevs` only shows the Moonlander keyboard and SDL sees
 zero joysticks, the 8BitDo is in a hidraw-only mode such as `2dc8:6013`. Switch
@@ -179,8 +185,8 @@ cd ansible
 ansible-playbook install-sega-rally-revo.yml
 ```
 
-Sega Rally 2 is not installable (Wine dead-end, verified again with the 2.0.0
-repack on 2026-09-13) — see https://github.com/akitaonrails/distrobox-gaming/issues/3 .
+Install the original European PC Sega Rally 2 release with
+`ansible-playbook install-sega-rally-2.yml`; see [setup](sega-rally-2.md).
 
 Install or refresh host menu entries separately from the host:
 
@@ -210,42 +216,17 @@ directory when an installer asks where to install. Games that need a fixed
 installed path, such as Colin McRae Rally 2.0, define `installed_path` and run
 from that prefix directory instead.
 
-## Colin McRae: DiRT (2007)
+## Colin McRae: DiRT (2007) — replaced by the REA launcher
 
-Base install is the RELOADED disc (extracted to
-`{{ dg_pc_racing_source_root }}/DiRT-2007-RELOADED_Extracted`; the NAS
-"Dirt Rally.iso" is actually the Mastertronic retail re-release of this
-same game — misnamed, and carrying SafeDisc). The 2007 InstallShield
-wizard has no reliable silent mode: run `bin/install-colin-mcrae-dirt`
-interactively (path may stay at the default `C:\Program Files
-(x86)\Codemasters\DiRT` — `installed_path` points into the prefix).
-
-Then the patch chain, all interactive wizards, in order:
-`Crack/dirt_1_1.exe` (official 1.1, ships on the RELOADED disc) →
-`DiRt_1_2.exe` → `DiRT 1.21 Patch.exe` → `dirt1.22patch.exe` (v1.22
-officially removes the disc protection — no cracked exe needed). The
-patch exes live in `ROMS_FINAL/PC/"Colin McRae DiRT - DiRT (2007)
-Incl Patch..."/Patches`.
-
-**Race-load crash on modern CPUs**: v1.22 menus work but loading any
-race page-faults (`movl %eax, 0x2c(%edi)` with EDI=0) — EGO v1's
-worker-map init mishandles high logical-CPU counts (32 threads here).
-Pinning affinity does not help (the game reads `GetSystemInfo`, which
-ignores affinity). Fix: xatornet's CMCR-DiRT-MTFix (archived in
-`ROMS_FINAL/PC/dirt-patches/`), applied natively:
-
-1. Set the LAA/4GB flag bit on `DiRT.exe` (backup kept as `DiRT.bak`).
-2. Copy the fix's `Files/system/*.xml` worker maps into
-   `<game>/system/`.
-3. Render its `Template.xml` with `_Y_` → `12` (the fix's ceiling) to
-   `<game>/system/hardware_settings_restrictions.xml`.
-4. Delete the per-user `Documents/Codemasters/DiRT/hardwaresettings/`
-   XML cache — note this **resets in-game settings** (re-pick
-   resolution afterwards).
-
-The game's own "restart now" flow after changing resolution just
-exits (it expects Windows to relaunch it) — relaunch manually.
-Rendering is the DiRT 2 stack: DXVK, gamescope at 4K, native XInput.
+DiRT left this pipeline on 2026-11-01: it now runs through
+[akitaonrails/rea-dirt](https://github.com/akitaonrails/rea-dirt)
+(`install_rea_dirt`, [docs/rea-dirt.md](rea-dirt.md)) — a self-contained
+AppImage with its own Wine + DXVK that keeps a private runtime copy of the
+owned v1.22 source in `ROMS_FINAL/PC/games/DiRT-2007`. The slug, its
+interactive InstallShield install, the 1.1 → 1.2 → 1.21 → 1.22 patch chain and
+the per-game prefix are all retired, and the launcher's corrected EGO worker
+maps + LAA replace the CMCR-DiRT-MTFix race-load crash workaround this section
+used to document.
 
 ## DiRT 3 Complete Edition
 
@@ -259,66 +240,7 @@ its own main thread even with the missing sonames supplied; the Windows RELOADED
 crack fights Proton's `lsteamclient`). Full attempt log: https://github.com/akitaonrails/distrobox-gaming/issues/6
 ## Colin McRae Rally (1998)
 
-Source is the ChemicalFlood portable repack at
-`{{ dg_pc_racing_source_root }}/CMRally` — no installer; `install_mode:
-copy` rsyncs it to the shared install root and the pack's `C:\CMRally`
-registry fix is replicated with every path key retargeted to
-`G:\colin-mcrae-rally-1`. `Rally.exe` is the pack's patched game binary
-(`Game.exe` is the untouched 1998 one). Per-app `winver=winxp` mirrors
-the pack's XP-SP3 compatibility requirement. In-game resolution should
-be set to 800x600 (the game's max — no community hi-res patch exists).
-
-**Presentation: rootful Xwayland with a pinned 800x600 canvas.** The
-host wrapper starts `Xwayland :12 -geometry 800x600 -fullscreen`; the
-game runs with `DISPLAY=:12` (env `force: true` — distrobox always
-sets DISPLAY, so the default-if-unset form silently never applies).
-The pinned geometry matters: without it Xwayland locks its fullscreen
-scaling to the first emulated mode (the 640x480 menus) and crops the
-800x600 race image. One fixed root canvas, both modes scale into it.
-Output is stretched to 16:9 — **4:3 letterboxing is not achievable on
-this stack**; the full dead-end matrix (gamescope trails, dgVoodoo2
-crashes under both DXVK and wined3d-d3d11, `renderer=gdi` NULL-crash,
-`renderer=vulkan` black screen, windowed rootful doesn't scale) is
-recorded in the game's entry in `pc_racing.yml`.
-
-**Controls: keyboard-emulation bridge, not DirectInput.** The wine
-joystick path is dead for this game (winebus enumerates the pad, but
-Xidi never loads and in-game joystick assignment registers nothing).
-Instead the launcher's `pre_launch_commands` start an evsieve bridge
-(same tech as the melonDS/azahar wrappers) mapping the physical pad to
-keyboard keys, and the game is played in its **Keyboard** controller
-mode (set Controller 1 = Keyboard in-game — not Joystick):
-
-| Pad | Key | Game action |
-| --- | --- | --- |
-| Left stick X | Left/Right | steer (digital, like the PS1 original) |
-| RT | Up | accelerate |
-| LT | Down | brake |
-| A | Space | handbrake |
-| B | Esc | back/menus |
-
-Both pads are accepted (first found wins): the 8BitDo Ultimate 2 on
-its 2.4G dongle, or the Xbox Series pad on the GIP wireless adapter
-(verified end-to-end in-race).
-
-Gotchas that cost real debugging:
-
-- **Pads must be awake before launch** — winebus/the bridge only see
-  devices present at startup (no udev hotplug inside the container),
-  and the bridge's pad glob is resolved once at launch.
-- **The 8BitDo plugged in via USB-C is not a gamepad**: wired, it
-  presents device id `2dc8:6013` bound to `hid-generic` (no driver),
-  and the dongle radio idles with only its keyboard/mouse endpoints.
-  2.4G dongle mode is the only mode that yields a joystick device.
-- The 8BitDo dongle's keyboard endpoint sends real arrow/Enter keys
-  from the d-pad — which masks a dead joystick path convincingly
-  (menus navigate fine while the game receives no joystick input).
-- The game's "Run Joystick Panel" settings button launches Windows'
-  `joy.cpl`; with no WM on the rootful server it destroys the game's
-  surface (black screen, music keeps playing). Don't use it.
-- Xidi wrappers remain installed (dinput+winmm) but are inert here;
-  the Xidi extraction task is marker-guarded — changing the wrapper
-  list requires removing `.dg-xidi-*` from the game dir first.
+The original PC game now uses the [REA Colin McRae launcher](colin-mcrae-rally-1.md).
 
 ## Colin McRae Rally 2.0
 
@@ -517,9 +439,13 @@ that dialog for this game.
 
 ## Colin McRae Rally 2005
 
-Not feasible on the current Wine/distrobox stack (stable page fault `0041DA27`
-under Wine; the GOG installer hangs). Use the **PS2 version via PCSX2** for this
-title. Full attempt log: https://github.com/akitaonrails/distrobox-gaming/issues/4
+Moved to its own self-contained REA launcher
+([`install_rea_colin_mcrae_2005`](rea-colin-mcrae-2005.md), 2026-11-02). The
+dead-end page fault `0041DA27` was the game loading its fonts through registry
+values its installer never wrote under Wine, and the GOG installer hangs; the
+launcher writes those values on every start and unpacks the GOG files with
+bundled innoextract, so it runs natively at 4K. The old attempt log is issue
+[#4](https://github.com/akitaonrails/distrobox-gaming/issues/4).
 ## OutRun 2006
 
 OutRun 2006 uses the Inno Setup repack source under
@@ -533,7 +459,7 @@ the current builds (new input system, config overlay, framerate interpolation)
 live only on the GitHub Actions tab. We pin the **CI build at commit `08e5efb4`
 (2026-08-26)**, fetched via [nightly.link](https://nightly.link) (no GitHub
 auth) and staged on the NAS at
-`ROMS_FINAL/PC/OutRun2006Tweaks-ci-08e5efb4.zip`. The patch uses `extract_files`
+`ROMS_FINAL/PC/mods/OutRun2006Tweaks-ci-08e5efb4.zip`. The patch uses `extract_files`
 to pull only `dinput8.dll` + `OR2006C2C.exe` + `OutRun2006Tweaks.lods.ini`, so
 our tuned `OutRun2006Tweaks.ini` (4K/borderless/DP-1 position/ControllerHotPlug/
 SkipIntroLogos, re-applied by the role's `ini:` edits) is preserved. The CI
@@ -641,11 +567,48 @@ main-menu path before the offline DirectX runtime was installed.
 
 ## Sega Rally 2
 
-Not managed here — a Wine dead-end on this box (the game's own MGameD3D renderer
-null-derefs; verified with the 1.9.0 and 2.0.0 25th-Anniversary repacks). The
+The Anniversary repack is not managed here — its MGameD3D renderer null-derefs with the 1.9.0
+and 2.0.0 25th-Anniversary repacks on this box. The
 2.0.0 installer payload (SHA-256 verified) is staged on the NAS at
-`ROMS_FINAL/PC/Sega Rally 2 ~ 25th Anniversary Edition 2.0.0/` for a future
+`ROMS_FINAL/PC/games/Sega Rally 2 ~ 25th Anniversary Edition 2.0.0/` for a future
 retry. Full attempt log + test matrix: https://github.com/akitaonrails/distrobox-gaming/issues/3
 
-Play **Sega Rally Championship HD** (`install_sega_rally`) or **Sega Rally Revo**
-(`sega-rally-revo`) instead.
+A 2026-10-10 issue comment pointed to
+[sr2-patcher](https://github.com/pairomaniac/sr2-patcher). It applies several
+`MGameD3D.dll` fixes and explicitly supports Wine/Proton. On 2026-10-17 we
+reinstalled the local 2.0.0 repack into a temporary prefix: its
+`MGameD3D.dll` MD5 matches the patcher's supported file exactly
+(`201a9cc68096231eebcd602a65b7af6e`), but its `SEGA RALLY 2.EXE` is
+1,550,848 bytes, MD5 `309f04622862cf5d8d75f3cdf56b0839`. None of the
+patcher's supported retail PC builds has that executable fingerprint, and its
+build check refuses unknown or modified files before patching. No original PC
+disc image was found in the local ROMS_FINAL collection. The 2.1.0 Anniversary
+installer was also unpacked into a disposable prefix on 2026-10-17 and produced
+the same executable and renderer DLL hashes. If a supported original
+PC release becomes available, test the patcher on a separate install rather
+than applying its binary offsets to the Anniversary executable.
+
+The later `ROMS_FINAL/PC/games/SEGA RALLY 2.exe` download is a 632 MB GAME-TIME
+"Portable Edition" packaged with Cameyo VOS virtualization, not a retail PC
+disc image or an accessible original game executable. The patcher cannot
+identify its build from that wrapper.
+
+On 2026-10-30, the original English install ISO and play BIN/CUE linked in
+[issue #3](https://github.com/akitaonrails/distrobox-gaming/issues/3) were
+downloaded to `ROMS_FINAL/PC/games/Sega Rally 2 (1999 original PC discs)/`.
+Their SHA-1 hashes match the Archive.org metadata. Extracting the ISO's old
+InstallShield CAB yields a 1,469,952-byte European Pentium III executable,
+MD5 `51b3da97c3c73611d3516b65bb684cb5`, which matches the supported build
+in [sr2-patcher](https://github.com/pairomaniac/sr2-patcher). Patcher v0.9.2
+installed the ISO, applied its default fixes, and ripped all 13 music tracks
+from the play disc. In an isolated Wine prefix, the patched game reached a live
+Desert race with the Corolla WRC, rendered the car and course, and responded
+to acceleration. This removes the original-disc availability and renderer
+blockers. The headless test used llvmpipe software OpenGL, so accelerated 4K
+performance, audio, controller input, and longer play were not established
+by that first test. The [managed original-disc install](sega-rally-2.md)
+now runs with NVIDIA GLX on the RTX 5090; see its setup notes for the
+remaining verification limits.
+
+**Sega Rally Championship HD** (`install_sega_rally`) and **Sega Rally Revo**
+(`sega-rally-revo`) remain available as separate games.

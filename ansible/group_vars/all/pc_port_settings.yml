@@ -1,0 +1,93 @@
+---
+# One-time external display baselines. Existing later in-game edits are preserved.
+dg_pc_port_target_width: 3840
+dg_pc_port_target_height: 2160
+dg_pc_port_unleashed_fps: 120
+
+dg_pc_port_conker_graphics:
+  wm_option: Fullscreen
+  res_option: Auto
+  msaa_option: MSAA8X   # the port offers 2X/4X/8X; 8X is free on the 5090
+
+dg_pc_port_roadrash_graphics:
+  wm_option: Fullscreen
+  res_option: Auto
+  msaa_option: MSAA4X
+
+dg_pc_port_ship_graphics:
+  CVars:
+    gSettings:
+      AdvancedResolution:
+        VerticalPixelCount: "{{ dg_pc_port_target_height }}"
+        UIComboItem:
+          PixelCount: 8
+  Window:
+    Fullscreen:
+      Enabled: true
+
+dg_pc_port_window_fullscreen:
+  Window:
+    Fullscreen:
+      Enabled: true
+
+dg_pc_port_sonic3air_graphics:
+  Fullscreen: 1
+
+# G-Diffuser interpolates presentation to the monitor rate without changing
+# its 60 Hz simulation. Its separate 60 Hz frame pacer must remain off.
+dg_pc_port_gdiffuser_frame_rate:
+  CVars:
+    gEnhancements:
+      Graphics:
+        FrameInterpolation: 1
+        FramePacing: 0
+        InterpTargetMode: 0
+
+dg_pc_port_unleashed_video:
+  WindowWidth: "{{ dg_pc_port_target_width }}"
+  WindowHeight: "{{ dg_pc_port_target_height }}"
+  FPS: "{{ dg_pc_port_unleashed_fps }}"
+
+dg_pc_port_dkr_graphics:
+  presentation_profile: 1          # Modern
+  window_mode: 1                   # Fullscreen
+  modern_resolution: 2            # Automatic integer scale
+  modern_aspect: 1                # Fit to window
+  modern_antialiasing: 2          # MSAA 4x
+  modern_refresh_rate: 0          # Match display
+  modern_high_precision_fb: 1
+  maximum_detail: 1
+
+dg_pc_port_starfox_enhanced_graphics:
+  PRESENTATION_FPS: 120
+  ANTI_ALIASING: 3             # Heavy
+  ENHANCED_GRAPHICS: 1
+  MODEL_SMOOTHING: 2           # Medium
+
+dg_pc_port_dusk_graphics:
+  video.enableFullscreen: true
+  video.maxFrameRate: 240
+
+dg_pc_port_render96ex_graphics:
+  fullscreen: 'true'
+  window_w: "{{ dg_pc_port_target_width }}"
+  window_h: "{{ dg_pc_port_target_height }}"
+
+dg_pc_port_triaevum_graphics:
+  Graphics:
+    Window:
+      Mode: Borderless
+    Output:
+      Width: "{{ dg_pc_port_target_width }}"
+      Height: "{{ dg_pc_port_target_height }}"
+      RefreshRate: 90
+    FrameRate:
+      Mode: Interpolated3x
+    AA:
+      Mode: MSAA
+      MsaaSamples: 4
+
+dg_pc_port_triaevum_launch_args:
+  --width: "{{ dg_pc_port_target_width }}"
+  --height: "{{ dg_pc_port_target_height }}"
+  --presentation-rate: 90

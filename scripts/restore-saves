@@ -1,0 +1,70 @@
+#!/usr/bin/env sh
+# restore-saves — pull emulator + PC-port save data back from the NAS backup.
+#
+# The counterpart to backup-saves. Reads the same manifest and rsyncs each
+# $DG_BACKUP_ROOT/<name>/ back to its original location (a directory, or the
+# parent directory of a single-file source). Intended for a from-scratch
+# distrobox remount: run it once after `ansible-playbook site.yml` on the host.
+#
+# SAFE BY DEFAULT: uses --ignore-existing, so a save already present on the box
+# is never overwritten (a fresh box gets everything; an existing box only gains
+# what it's missing). Flags:
+#   --update    replace a local save only if the backup copy is NEWER
+#   --force     overwrite local saves with the backup unconditionally
+#   --dry-run   show what would change
+#
+#   ~/.local/bin/restore-saves
+#   ~/.local/bin/restore-saves --dry-run
+#
+# Managed by the distrobox-gaming backup_saves role.
+set -eu
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/distrobox-gaming"
+[ -f "$CONF_DIR/backup.env" ] && . "$CONF_DIR/backup.env"
+MANIFEST="${DG_SAVE_MANIFEST:-$CONF_DIR/save-manifest.tsv}"
+: "${DG_BACKUP_ROOT:?DG_BACKUP_ROOT not set (rendered into $CONF_DIR/backup.env by the backup_saves role)}"
+: "${DG_SAVE_BASE:?DG_SAVE_BASE not set (rendered into $CONF_DIR/backup.env by the backup_saves role)}"
+: "${DG_BACKUP_MOUNT:?DG_BACKUP_MOUNT not set (rendered into $CONF_DIR/backup.env by the backup_saves role)}"
+[ -f "$MANIFEST" ] || { echo "restore-saves: no manifest at $MANIFEST" >&2; exit 1; }
+[ -d "$DG_SAVE_BASE" ] || { echo "restore-saves: box home absent: $DG_SAVE_BASE" >&2; exit 1; }
+mountpoint -q "$DG_BACKUP_MOUNT" || {
+  echo "restore-saves: NAS is not mounted at $DG_BACKUP_MOUNT" >&2; exit 1; }
+
+MODE="--ignore-existing"   # default: never clobber a save already on the box
+DRY=""
+for a in "$@"; do
+  case "$a" in
+    --force)   MODE="" ;;
+    --update)  MODE="--update" ;;
+    --dry-run) DRY="--dry-run" ;;
+    *) echo "restore-saves: unknown option $a" >&2; exit 2 ;;
+  esac
+done
+
+[ -d "$DG_BACKUP_ROOT" ] || { echo "restore-saves: no backup at $DG_BACKUP_ROOT" >&2; exit 1; }
+
+TAB="$(printf '\t')"
+n=0; restored=0; absent=0
+while IFS="$TAB" read -r name kind rel; do
+  case "$name" in ''|\#*) continue ;; esac
+  n=$((n + 1))
+  bak="$DG_BACKUP_ROOT/$name"
+  if [ ! -d "$bak" ]; then
+    absent=$((absent + 1)); printf '  –  %s (nothing in backup)\n' "$name"; continue
+  fi
+  case "$rel" in
+    /*) target="$rel" ;;
+    *)  target="$DG_SAVE_BASE/$rel" ;;
+  esac
+  case "$kind" in
+    dir)  dst="$target" ;;
+    file) dst="$(dirname "$target")" ;;
+    *)    echo "restore-saves: bad manifest kind '$kind' for $name" >&2; exit 1 ;;
+  esac
+  mkdir -p "$dst"
+  # shellcheck disable=SC2086  # $MODE/$DRY are empty or one flag each
+  rsync -a $MODE $DRY "$bak/" "$dst/"
+  restored=$((restored + 1)); printf '  \342\234\223  %s\n' "$name"
+done < "$MANIFEST"
+
+echo "restore-saves: $restored restored, $absent absent (of $n sources)${DRY:+  [dry-run]}${MODE:+  [${MODE#--}]}"

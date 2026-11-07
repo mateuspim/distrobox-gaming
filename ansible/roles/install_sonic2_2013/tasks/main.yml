@@ -37,18 +37,26 @@
       register: _s2_files
       failed_when: not _s2_files.stat.exists
 
-    - name: Clone + build the RSDKv4 decompilation (once)
+    - name: Clone and build the pinned RSDKv4 decompilation
       ansible.builtin.shell: |
         {{ dg_in_box }} bash -c '
           set -eu
-          [ -x "{{ dg_s2013_game_dir }}/RSDKv4" ] && exit 0
+          ref="{{ dg_s2013_ref }}"
+          if [ -x "{{ dg_s2013_game_dir }}/RSDKv4" ] &&
+             grep -qx "$ref" "{{ dg_s2013_game_dir }}/.dg-source-ref" 2>/dev/null; then
+            exit 0
+          fi
           [ -d "{{ dg_s2013_src }}/.git" ] || git clone --recursive "{{ dg_s2013_repo }}" "{{ dg_s2013_src }}"
           cd "{{ dg_s2013_src }}"
+          git fetch -q origin
+          git checkout -q "$ref"
+          git submodule update --init --recursive -q
           cmake -B build -DCMAKE_BUILD_TYPE=Release >/dev/null
           make -C build -j"$(nproc)" >/dev/null
           mkdir -p "{{ dg_s2013_game_dir }}/mods"
           cp build/RSDKv4 "{{ dg_s2013_game_dir }}/"
           chmod 0755 "{{ dg_s2013_game_dir }}/RSDKv4"
+          printf "%s\n" "$ref" > "{{ dg_s2013_game_dir }}/.dg-source-ref"
           echo s2013-built
         '
       register: _s2013
@@ -99,6 +107,20 @@
         dest: "{{ dg_s2013_game_dir }}/settings.ini"
         force: false
         mode: "0644"
+
+    # RSDKv4 draws a 424x240 framebuffer and integer-scales it: 2160/240 = 9
+    # is the largest scale that fits the 4K panel (3816x2160), with
+    # ScalingMode=0 (nearest) keeping the pixels crisp.
+    - name: Scale Sonic 2 (2013) to pixel-perfect 4K
+      community.general.ini_file:
+        path: "{{ dg_s2013_game_dir }}/settings.ini"
+        section: Window
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+        mode: "0644"
+      loop:
+        - { option: ScalingMode, value: "0" }
+        - { option: WindowScale, value: "9" }
 
     - name: Deploy the launcher
       ansible.builtin.template:

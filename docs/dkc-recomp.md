@@ -1,5 +1,8 @@
 # Donkey Kong Country SNES recompilations (DKC1 / DKC2 / DKC3)
 
+Release sweep 2026-10-23: newer DKC1/2/3 tags exist, but the roles build from pinned source commits with Linux patches tailored to those commits; upstream release archives do not provide supported Linux builds. The installed trilogy stays pinned until each patch is rebased and rebuilt.
+Rechecked 2026-11-01: the newer DKC1/2/3 release assets remain Windows/macOS only. Their source commits include platform-specific host changes, and the Linux patches still target the pinned commits; no Linux upgrade was applied.
+
 [elliotttate](https://github.com/elliotttate)'s **DKC1Recomp** / **DKC2Recomp**
 / **DKC3Recomp** statically recompile the SNES trilogy into native widescreen
 PC ports (shared `snesrecomp` engine, SDL2 hosts; days-old alphas). Upstream
@@ -50,6 +53,14 @@ note the launcher persists its config BESIDE THE EXECUTABLE, not the cwd.
 "Skip launcher on boot" available; DKC1's extras live in host menus/keys
 (F7 pause, F8 step). Update = bump `ref`
 in `dg_dkc_games` (checkout is ref-gated; the build re-runs).
+
+## Graphics
+
+The role keeps both DKC2/DKC3 launcher configs at the ceiling for this box:
+`Fullscreen=1`, `AspectIndex=1` (the launcher's "16:9 (Widescreen)" entry) and
+`Widescreen=1` for the widened rendering. `WindowScale` only applies to windowed
+mode. DKC1's older SDL host has no launcher config; it opens its window from the
+host's own defaults.
 
 ## Saves, save states, and pad chords
 

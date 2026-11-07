@@ -5,9 +5,11 @@ a native **recompilation** of the Nintendo DS *Metroid Prime Hunters* (built on
 `ndsrecomp`), running as a real executable instead of emulating the hardware.
 Opt-in role; installed 2026-08-14.
 
-- **Form:** prebuilt **Linux AppImage** (`v0.5.0-alpha`, ~55 MB) — no build, no
+- **Form:** prebuilt **Linux AppImage** (`v0.7.3-alpha`) — no build, no
   deps beyond `libfuse2` (already on the box). Renderer is **OpenGL 4.3
   compute**; input is **native SDL** (gamepad works out of the box).
+
+Release sweep 2026-10-23: `v0.7.8-alpha` has Windows and source archives but no Linux binary. The working Linux AppImage stays at `v0.7.3-alpha` pending a tested Linux build or Wine migration.
 - **Ships no game data.** It boots BIOS-less using the built-in **FreeBIOS +
   generated firmware**, so no DS BIOS/firmware dump is needed.
 
@@ -66,3 +68,15 @@ checksum-gated `get_url` pulls the new build.
   writes a coverage JSON **next to the ROM on the NAS**.
 - `--adaptive-widescreen` is now refused for MPH ("supported: none") and makes
   the runner exit — dropped from `dg_mph_flags`.
+
+## Release tracking (2026-10-27)
+
+The periodic sweep reports `v0.7.11-alpha` as a candidate, but **that release
+ships only a Windows build** (`MetroidPrimeHuntersRecomp-windows-x64-v0.7.11.zip`)
+— the Linux AppImage stopped after `v0.7.3-alpha`. The pin intentionally stays
+at **v0.7.3-alpha** (last Linux build). Revisit only if upstream resumes Linux
+artifacts; the Windows zip could run under Proton if that ever becomes worth it.
+
+## 2026-11-01 update check
+
+The latest v0.7.11-alpha release provides a Windows ZIP and source archive but no native Linux AppImage. Keep the existing v0.7.3-alpha Linux build until a compatible asset is released. The new release defaults to 4× internal 3D resolution and 8× SSAA on supported builds.

@@ -1,11 +1,10 @@
 # Save-data backup & restore
 
-Emulators and PC ports scatter their save games, memory cards, save states and
-NAND user-saves across `~/.config` and `~/.local/share` inside the box (and, for
-libultraship ports, next to the app). Because the box's `$HOME` is a bind-mount
-that survives a container rebuild, those saves usually persist — but if you ever
-wipe or re-provision from scratch you'd lose them. This system mirrors them to
-the NAS and restores them on demand.
+Emulators and PC ports scatter saves across the box's persistent home and, for
+some native ports, the host home. The backup and restore commands run on the
+host. They read the box's persistent files directly, so the game runtime does
+not need NAS write access or the host home. The NAS copy supports recovery
+after a lost home or a fresh machine.
 
 ## Where it goes
 
@@ -22,8 +21,8 @@ writer to a fixed uid:gid, so group preservation only ever fails.
 Best with games closed. From the host:
 
 ```sh
-distrobox enter gaming -- bash -lc '$HOME/bin/backup-saves'            # back up everything
-distrobox enter gaming -- bash -lc '$HOME/bin/backup-saves --dry-run'  # preview
+~/.local/bin/backup-saves            # back up everything
+~/.local/bin/backup-saves --dry-run  # preview
 ```
 
 It rsyncs every save set that has local data to `dg_backup_root/<name>/`. Sets
@@ -41,8 +40,8 @@ scripts/install-save-backup-timer.sh            # install + enable
 scripts/install-save-backup-timer.sh --uninstall
 ```
 
-It deploys `~/.local/bin/dg-save-backup` (an env-robust wrapper: absolute PATH,
-NAS-mount guard, `distrobox enter gaming -- backup-saves`) plus the
+It deploys `~/.local/bin/dg-save-backup` (an env-robust host wrapper: absolute
+PATH and NAS-mount guard) plus the
 `dg-save-backup.{service,timer}` user units, then enables the timer. Check /
 run / read it:
 
@@ -64,7 +63,7 @@ cd ansible
 ansible-playbook site.yml                    # rebuild the box first
 ansible-playbook restore-saves.yml           # then pull saves back from the NAS
 # or directly:
-distrobox enter gaming -- bash -lc '$HOME/bin/restore-saves'
+~/.local/bin/restore-saves
 ```
 
 **Safe by default:** `restore-saves` uses `--ignore-existing`, so a save already
@@ -82,34 +81,61 @@ normal run never touches saves.
 ## What's covered
 
 The inventory is **data-driven** — `dg_save_sets` in
-`ansible/group_vars/all/backups.yml`, one `{name, src}` per directory (src is
-relative to the box `$HOME`). Currently: RetroArch (saves + states), PCSX2,
-DuckStation, Dolphin (GC/Wii/states), Flycast VMU, xemu, RPCS3 (`dev_hdd0/home`),
-PPSSPP, Azahar (sdmc + nand), melonDS, Eden (`nand/user/save` only — **not** the
-79 GB nand), Cemu, shadPS4 savedata, Supermodel NVRAM, Xenia content (per-title
-`00000001` savegames + installed TUs/DLC; the big DLC entries are symlinks and
-stay symlinks), and the native ports/recomps/fan games (Ship of Harkinian &
-family, DK64 / GoldenEye / Unleashed recomps, Perfect Dark, DUDE, PrBoom+ RT,
-Sonic 3 A.I.R., Star Fox Enhanced, SMW Remastered, SoRR, …).
+`ansible/group_vars/all/backups.yml`, one entry per save set. An entry is a
+`name` plus `src`, and `src` may be:
 
-The `backup_saves` role renders the manifest to
-`~/.config/distrobox-gaming/save-manifest.tsv` and the root to `backup.env`,
-then deploys the two helpers — it runs as part of `site.yml` (tag
-`backup_saves`), so the tooling is always present.
+| Form | Meaning |
+|---|---|
+| `.config/Game/x` | directory, relative to `dg_box_home`, the persistent box home |
+| `/home/you/.local/share/Game` | absolute — the native ports that run on the **host** (Fukami, Takedawn) keep saves in the host home |
+| `file:.local/share/Game/save.bin` | one loose save file (EEPROM/SRAM/`.sav`/`.xml` beside the executable) |
+| `[a, b, file:c]` | several sources; they all mirror into the same `<name>` directory |
+
+The rendered manifest is `save-manifest.tsv` with
+`name<TAB>kind<TAB>path` rows, and both helpers understand `kind`.
+
+Currently covered: RetroArch (saves + states), PCSX2, DuckStation, Dolphin
+(GC / Wii / GBA / states), Flycast VMU, xemu, RPCS3 (`dev_hdd0/home` and
+`dev_hdd0/savedata`), PPSSPP, Azahar (sdmc + nand), melonDS, Eden
+(`nand/user/save` + `nand/system/save`, **not** the 79 GB nand), Cemu, shadPS4
+(`home/<uid>/savedata`), Supermodel and Model 1 NVRAM, Xenia content (per-title
+`00000001` savegames + installed TUs/DLC; the big DLC entries are symlinks and
+stay symlinks), and the native ports/recomps/fan games — Ship of Harkinian,
+2Ship, Lighthouse, SpaghettiKart, DK64/DKC/DKR/Conker/Banjo-Tooie recomps,
+GoldenEye, Unleashed, Perfect Dark, DUDE, Doom 64 RT, PrBoom+ RT, SMAS, SoTN,
+SoH-family, Fukami, Takedawn, Xerenge-adjacent ports, Sonic 3 A.I.R. /
+2 (2013) / Classic / Dimensions / P-06 / Fallen Star, SMW & SMB Remastered,
+Star Fox 64 / Enhanced / Pilotwings / MPH-adjacent recomps, SoRR, CannonBall,
+OpenCMR2, OpenSC2K, Project R, SOtC, Midnight Club LA, Road Rash 64, F-Zero
+(SNES + GLINUX), WipEout-adjacent, and the rest of the 2026-10-28 audit.
+
+The `backup_saves` role renders the manifest to the **host**
+`~/.config/distrobox-gaming/save-manifest.tsv` and the root, mount guard, and
+box-home base into `backup.env`. It deploys both helpers to host
+`~/.local/bin/` and removes the retired in-box copies. It runs as part of
+`site.yml` (tag `backup_saves`).
 
 ## Adding a new emulator or game
 
 When you install anything with save data, **add its save dir(s) to
 `dg_save_sets`** in `group_vars/all/backups.yml` and re-run
-`ansible-playbook site.yml --tags backup_saves`. A wrong or not-yet-created path
+`ansible-playbook site.yml --tags backup_saves`, then
+`~/.local/bin/backup-saves --dry-run`. A wrong or not-yet-created path
 is harmlessly skipped, so err toward listing it. This keeps the backup complete
 as the library grows.
 
 ## Notes / gaps
 
-- Entries must be **directories**. All current ones are.
-- **Wine/Proton game saves** (PC racing, DriveClub, etc.) live inside their
-  wineprefixes' `drive_c/users/.../Documents` / `Saved Games` and are **not**
-  covered yet — add specific prefix subpaths to `dg_save_sets` if you want them.
+- Entries may be directories or single files (see the table above); a set can
+  list several sources.
+- **Wine/Proton game saves** (PC racing, DriveClub, Azimuth's Forza titles,
+  WipEout PE, Mickey & Donald) live inside their wineprefixes'
+  `drive_c/users/.../Documents` / `Saved Games` and are **not** covered yet —
+  add specific prefix subpaths to `dg_save_sets` if you want them.
+- Games that have never been played have no save path on disk yet: their sets
+  report "no local data" until the first save (PPSSPP, Lighthouse, 2Ship,
+  F-Zero GLINUX memory card, DKC1). **Metroid Prime Hunters Recomp** and
+  **RalliSport Challenge 2** have no save location identified yet — revisit
+  after a first playthrough instead of guessing one.
 - The helpers need the NAS mounted; they abort cleanly if `dg_backup_root`
   isn't reachable.

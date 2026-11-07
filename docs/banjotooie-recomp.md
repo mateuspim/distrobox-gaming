@@ -1,9 +1,13 @@
 # Banjo-Tooie Recompiled — `install_banjotooie_recomp`
 
-[some-scurvy-dog/BanjoTooieRecompiled](https://github.com/some-scurvy-dog/BanjoTooieRecompiled)
+[some-scurvy-dog/banjo-tooie-scurvy-dog-port](https://github.com/some-scurvy-dog/banjo-tooie-scurvy-dog-port)
 is an **N64Recomp + N64ModernRuntime + RT64 static recomp** PC port of
 Banjo-Tooie (NTSC-U 1.0), built on the Banjo-Tooie decompilation. Opt-in
-role; installed 2026-10-01 at `v0.1.0-alpha.3`.
+role; updated to `v0.1.0-alpha.4.5`. This is still an upstream
+prerelease. The renamed executable is installed in a versioned folder so the
+old Alpha 3 build remains available for rollback; the external profile keeps
+saves, settings and the verified ROM. Alpha 4.3 fixes distant-geometry flicker
+and audio clicking and adds borderless fullscreen and live resolution changes.
 
 ## Windows-only alpha → Wine (unlike CBFD/DKR-R)
 
@@ -14,7 +18,7 @@ runs under **wine-11.8** with the established recipe: `UseEGL=N` GLX pin
 **gamescope** (`-W 3840 -H 2160 -f`) for fullscreen on DP-1. RT64 renders
 through its "plume" D3D12→Vulkan layer (vkd3d) — confirmed initializing on
 the RTX 5090 in the boot smoke test. The release zip is hash-pinned on the
-NAS (`ROMS_FINAL/PC/banjotooie-recomp/`).
+NAS (`ROMS_FINAL/PC/ports/banjotooie-recomp/`).
 
 > Update-check note: upstream has **only prereleases** so far, so
 > `releases/latest` is empty — query the releases list instead.
@@ -26,7 +30,7 @@ NAS (`ROMS_FINAL/PC/banjotooie-recomp/`).
 launcher hard-rejects other regions/byte orders/modified ROMs. The NAS dump
 `ROMS_FINAL/n64/Banjo-Tooie (USA).zip` (`Banjo-Tooie (U) [!].v64`,
 byte-swapped) is normalized to `.z64`, sha256-verified and kept at
-`ROMS_FINAL/PC/banjotooie-recomp/Banjo-Tooie (USA).z64`, plus a copy next to
+`ROMS_FINAL/PC/ports/banjotooie-recomp/Banjo-Tooie (USA).z64`, plus a copy next to
 the exe so the ROM picker defaults beside it.
 
 **First launch is a one-time manual step**: Play → **Choose ROM...** → pick

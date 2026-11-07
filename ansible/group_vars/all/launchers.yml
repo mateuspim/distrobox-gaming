@@ -127,6 +127,9 @@ dg_desktop_template_entries:
   - { name: gaming-shadps4-gui.desktop, enabled: "{{ dg_shadps4_enabled }}" }
   - { name: gaming-flycast.desktop, enabled: true }
   - { name: gaming-eden-cheats-manager.desktop, enabled: "{{ dg_eden_cheats_manager_enabled }}" }
+  # Opt-in game whose only entry point is this catalog: the sotn_recomp role
+  # installs the launcher and asks desktop_apps to refresh.
+  - { name: gaming-sotn-recomp.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-xenia-manager.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-unleashed-recomp.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-sonic-p06.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
@@ -137,7 +140,6 @@ dg_desktop_template_entries:
   - { name: gaming-spaghettikart.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-ship-of-harkinian.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-2ship2harkinian.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
-  - { name: gaming-starship.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-dusk.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-doom2-ray-traced.desktop, enabled: "{{ dg_optional_apps_enabled }}" }
   - { name: gaming-wipeout-pe.desktop, enabled: "{{ dg_optional_apps_enabled }}" }

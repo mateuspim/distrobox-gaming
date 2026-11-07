@@ -19,7 +19,7 @@ when only a `dist/` Windows nightly existed and the native external-ROM loader
 was broken) is **gone** — the role migrated away from it (removed the Wine
 prefix + old exe). The release zip is pinned by sha256 (verified against the
 release `SHA256SUMS.txt`) and staged on the NAS at
-`ROMS_FINAL/PC/starfox-enhanced/` for rebuilds.
+`ROMS_FINAL/PC/ports/starfox-enhanced/` for rebuilds.
 
 ## Game data
 
@@ -39,9 +39,27 @@ the PAK the option reads `NOT FOUND`).
 in Walker. Opens on DP-1 on the RTX (GLX/nvidia pinned). The pre-game setup
 selects `EXPERIENCE` (Original / Star Fox EX), pace, render FPS, display mode,
 renderer (GPU default), MSU-1, rumble, and controller remapping. **8BitDo
-works natively** (SDL, with rumble). **Select+Start exits.** Saves live in
-`Documents/Star Fox Enhanced/` (EX SRAM: `starfox-ex.srm`).
+works natively** (SDL, with rumble). **Select+Start exits.**
 
-Updating: bump `dg_sfe_version` + `dg_sfe_asset_sha256` (from the release
+Saves live **beside the executable** — this is the native build, not the old
+Wine one, so `Documents/Star Fox Enhanced/` no longer exists. EX SRAM is written
+to `tools/starfox-enhanced/game/starfox-ex.srm`, and `backup_saves` mirrors that
+file.
+
+`ansible-playbook configure-pc-ports.yml` applies the one-time baseline to the
+port's own setup file (`pregame.cfg`, space-separated `KEY VALUE`): fullscreen,
+120 FPS presentation, AA level 3, enhanced graphics on, render scale 3 (this
+release's 4× maximum), RTX lighting on, model smoothing 2 (medium), rumble on,
+MSU-1 off. The effect toggles (bloom, HDR,
+enhanced shadows, chromatic aberration) are deliberately **off** — they are
+stylistic post effects this port adds, not higher-fidelity rendering. The file
+is the port's own settings surface: change it in the setup screen or edit the
+keys directly.
+
+Updated to `v0.0.8.8.2` on 2026-11-01. This release fixes widescreen backgrounds and adds a saved keyboard player assignment for co-op. Updating: bump `dg_sfe_version` + `dg_sfe_asset_sha256` (from the release
 `SHA256SUMS.txt`), stage the new zip on the NAS, re-run (extract is
 version-gated). Revert: `-e dg_sfe_revert=true`.
+
+## 2026-11-01 release update
+
+The 0.0.8.8.2 release primarily changes Windows packaging and security checks. The native Linux package, owned ROM import, and current display/controller settings remain the setup.

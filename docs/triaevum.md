@@ -4,11 +4,12 @@
 recompilation of *The Legend of Zelda: Ocarina of Time 3D*** (the 3DS remake),
 with a modern NRI/Vulkan renderer, cel/toon shading, real widescreen, 60/90 FPS
 visual interpolation, a single-screen TopScreen HUD, and (the author's words)
-"a lot of grass". Opt-in role; installed 2026-09-08 at `v0.6.0-alpha.1c`.
+"a lot of grass". Opt-in role; currently pinned to `v0.8.0-beta.1.2`.
 
-**It is a Windows-x64-only experimental alpha** — the project does not target
-Linux. We run it under **Wine 11 + DXVK/vkd3d-proton** on the RTX. It works, but
+The current install uses the Windows x64 alpha under **Wine 11 + DXVK/vkd3d-proton** on the RTX. It works, but
 it is early (upstream has only tested through the title/file-select on USA).
+
+Release sweep 2026-10-23: `v0.8.0-beta.1.2` now ships Linux AppImage and Windows builds, but upstream requires a fresh Forge installation and explicit `data/savedata` migration. The current in-place role cannot perform that safely, so the alpha remains active pending a separate versioned migration and gameplay check.
 
 ## The one thing that made it work
 
@@ -45,6 +46,10 @@ Ocarina of Time 3D").
 
 - **Play:** `bin/triaevum` (opens on DP-1; 8BitDo via SDL; F1 = settings,
   F2 = toggle added effects).
+- **Display baseline:** `configure-pc-ports.yml` updates both the renderer JSON
+  and the launch profile to 3840×2160 borderless, 90 Hz visual interpolation
+  and 4× MSAA once. The 30 Hz game simulation is unchanged. A scoped launch
+  opened a 4K-sized window; visual quality in gameplay still needs checking.
 - **One-time setup (fresh install):** `triaevum setup` runs `TriAevumForge.exe`
   — select the decrypted OoT 3D `.cci`; it extracts → prepares → activates the
   bundled precompiled title and downloads the TopScreen texture pack (needs

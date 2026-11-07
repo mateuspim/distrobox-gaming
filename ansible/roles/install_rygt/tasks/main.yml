@@ -1,0 +1,189 @@
+---
+- name: Check RyGT game, firmware and font inputs
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ dg_rygt_game_dir }}/eboot.bin"
+    - "{{ dg_rygt_game_dir }}/gt00.vol"
+    - "{{ dg_rygt_game_dir }}/gt.idx"
+    - "{{ dg_rygt_game_dir }}/sce_sys/param.sfo"
+    - "{{ dg_ps4_firmware_modules }}/libSceFont.sprx"
+    - "{{ dg_rygt_font2_source }}"
+  register: _rygt_inputs
+
+- name: Require the local decrypted game and firmware
+  ansible.builtin.assert:
+    that: _rygt_inputs.results | selectattr('stat.exists') | list | length == 6
+    fail_msg: Set dg_rygt_game_dir, dg_ps4_firmware_modules and dg_rygt_font2_source to the owned decrypted assets.
+
+- name: Create RyGT directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ dg_rygt_cache_dir }}"
+    - "{{ dg_rygt_release_dir }}"
+    - "{{ dg_rygt_font_source }}/font"
+    - "{{ dg_rygt_update_overlay }}/sce_sys"
+    - "{{ dg_box_home }}/bin"
+
+- name: Download pinned RyGT release
+  ansible.builtin.get_url:
+    url: "{{ dg_rygt_asset_url }}"
+    dest: "{{ dg_rygt_cache_dir }}/{{ dg_rygt_asset_name }}"
+    checksum: "sha256:{{ dg_rygt_asset_sha256 }}"
+    mode: "0644"
+
+- name: Extract RyGT without duplicating the large game files
+  ansible.builtin.command:
+    argv:
+      - bsdtar
+      - -xf
+      - "{{ dg_rygt_cache_dir }}/{{ dg_rygt_asset_name }}"
+      - --strip-components
+      - '1'
+      - -C
+      - "{{ dg_rygt_release_dir }}"
+    creates: "{{ dg_rygt_release_dir }}/RyGT.exe"
+
+- name: Check the previous RyGT user directory
+  ansible.builtin.stat:
+    path: "{{ dg_rygt_previous_user_dir }}"
+  register: _rygt_previous_user
+
+- name: Bring existing saves and settings into the new release
+  ansible.builtin.command:
+    argv:
+      - rsync
+      - -a
+      - --ignore-existing
+      - --itemize-changes
+      - "{{ dg_rygt_previous_user_dir }}/"
+      - "{{ dg_rygt_release_dir }}/user/"
+  register: _rygt_user_sync
+  # --itemize-changes prints a line per file even when nothing transferred
+  # (".f..." for up-to-date); only ">" (file) / "c" (dir) lines are changes.
+  changed_when: _rygt_user_sync.stdout_lines | select('match', '^[>c]') | list | length > 0
+  when: _rygt_previous_user.stat.isdir | default(false)
+
+- name: Stage owned PS4 fonts for RyGT converter
+  ansible.builtin.copy:
+    src: "{{ dg_rygt_font2_source }}/"
+    dest: "{{ dg_rygt_font_source }}/font2/"
+    remote_src: true
+    mode: preserve
+
+- name: Install RyGT overlay preparation script
+  ansible.builtin.template:
+    src: prepare.py.j2
+    dest: "{{ dg_rygt_release_dir }}/.dg-prepare.py"
+    mode: "0644"
+
+- name: Prepare backport update overlay without touching the original dump
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ dg_rygt_release_dir }}/.dg-prepare.py"
+      - before
+      - "{{ dg_rygt_game_dir }}"
+      - "{{ dg_rygt_update_overlay }}"
+      - "{{ dg_rygt_release_dir }}"
+  register: _rygt_before
+  changed_when: "'changed' in _rygt_before.stdout"
+
+- name: Configure RyGT setup paths
+  ansible.builtin.template:
+    src: RyGT.ini.j2
+    dest: "{{ dg_rygt_release_dir }}/RyGT.ini"
+    mode: "0644"
+
+- name: Convert GT Sport once in the dedicated Wine prefix
+  ansible.builtin.command:
+    argv:
+      - timeout
+      - --signal=TERM
+      - --kill-after=10s
+      - 120s
+      - distrobox
+      - enter
+      - "{{ dg_box_name }}"
+      - --
+      - env
+      - "WINEPREFIX={{ dg_rygt_prefix }}"
+      - WINEDEBUG=-all
+      - wine
+      - "{{ dg_rygt_release_dir }}/RyGT.exe"
+      - --setup
+    chdir: "{{ dg_rygt_release_dir }}"
+    creates: "{{ dg_rygt_release_dir }}/GTSport.exe"
+  register: _rygt_setup
+  # Newer prereleases keep the launcher open after writing the converted game.
+  failed_when: _rygt_setup.rc not in [0, 124]
+
+- name: Verify the converted RyGT executable and linked game files
+  ansible.builtin.stat:
+    path: "{{ dg_rygt_release_dir }}/{{ item }}"
+  loop:
+    - GTSport.exe
+    - app0/gt00.vol
+    - app0/gt.idx
+  register: _rygt_converted_files
+
+- name: Require complete RyGT setup output
+  ansible.builtin.assert:
+    that: _rygt_converted_files.results | selectattr('stat.isreg', 'defined') | selectattr('stat.isreg') | list | length == 3
+
+- name: Repair the converter's unsupported NAS junction and seed title metadata
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ dg_rygt_release_dir }}/.dg-prepare.py"
+      - after
+      - "{{ dg_rygt_game_dir }}"
+      - "{{ dg_rygt_update_overlay }}"
+      - "{{ dg_rygt_release_dir }}"
+  register: _rygt_after
+  changed_when: "'changed' in _rygt_after.stdout"
+
+- name: Repair a portrait-sized ImGui window layout
+  # The game saves its window layout to user/imgui.ini on exit. A layout saved
+  # portrait (the second monitor, or a default) leaves a small window that
+  # looks like a failed launch, so portrait Size= lines become the landscape
+  # baseline; a sane landscape layout is preserved untouched.
+  ansible.builtin.shell: |
+    set -eu
+    f='{{ dg_rygt_release_dir }}/user/imgui.ini'
+    [ -f "$f" ] || exit 0
+    tmp="$f.dg"
+    awk -F= 'BEGIN{OFS="="}
+      /^Size=/ { split($2,a,","); if (a[1]+0 > 0 && a[2]+0 > a[1]+0) { print "Size={{ dg_rygt_display_size }}"; next } }
+      { print }' "$f" > "$tmp"
+    if cmp -s "$f" "$tmp"; then rm -f "$tmp"; exit 0; fi
+    mv "$tmp" "$f"
+    printf '%s\n' resized
+  register: _rygt_imgui
+  changed_when: "'resized' in _rygt_imgui.stdout"
+
+- name: Install RyGT launcher
+  ansible.builtin.template:
+    src: rygt-gt-sport.sh.j2
+    dest: "{{ dg_rygt_launcher }}"
+    mode: "0755"
+
+- name: Render RyGT desktop entry
+  ansible.builtin.template:
+    src: rygt-gt-sport.desktop.j2
+    dest: "{{ dg_desktop_render_dir }}/gaming-rygt-gt-sport.desktop"
+    mode: "0644"
+
+- name: Install host desktop entries
+  ansible.builtin.command:
+    cmd: "{{ dg_project_root }}/scripts/install-host-launchers.sh"
+  environment:
+    DG_DESKTOP_RENDER_DIR: "{{ dg_desktop_render_dir }}"
+    DG_HOST_APPLICATIONS_DIR: "{{ dg_host_applications_dir }}"
+  register: _rygt_host_launchers
+  changed_when: >-
+    'installed ' in _rygt_host_launchers.stdout or
+    'removed stale ' in _rygt_host_launchers.stdout

@@ -1,0 +1,76 @@
+#!/usr/bin/env sh
+# backup-saves — mirror the box's emulator + PC-port save data from the host.
+#
+# Reads the manifest rendered by the backup_saves role — one
+# `name<TAB>kind<TAB>path` line per save source — and rsyncs each existing
+# source to $DG_BACKUP_ROOT/<name>/. kind is `dir` (mirror its contents) or
+# `file` (copy that one file in). A set may list several sources and they all
+# land in the same <name> directory. A source with no local data yet is
+# skipped. Nothing is deleted from the backup, so it only ever accumulates.
+# Run it from time to time (with games closed is safest):
+#
+#   ~/.local/bin/backup-saves            # back up everything
+#   ~/.local/bin/backup-saves --dry-run  # show what would change
+#
+# Managed by the distrobox-gaming backup_saves role. No Distrobox entry needed.
+set -eu
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/distrobox-gaming"
+[ -f "$CONF_DIR/backup.env" ] && . "$CONF_DIR/backup.env"
+MANIFEST="${DG_SAVE_MANIFEST:-$CONF_DIR/save-manifest.tsv}"
+: "${DG_BACKUP_ROOT:?DG_BACKUP_ROOT not set (rendered into $CONF_DIR/backup.env by the backup_saves role)}"
+: "${DG_SAVE_BASE:?DG_SAVE_BASE not set (rendered into $CONF_DIR/backup.env by the backup_saves role)}"
+: "${DG_BACKUP_MOUNT:?DG_BACKUP_MOUNT not set (rendered into $CONF_DIR/backup.env by the backup_saves role)}"
+[ -f "$MANIFEST" ] || { echo "backup-saves: no manifest at $MANIFEST" >&2; exit 1; }
+[ -d "$DG_SAVE_BASE" ] || { echo "backup-saves: box home absent: $DG_SAVE_BASE" >&2; exit 1; }
+mountpoint -q "$DG_BACKUP_MOUNT" || {
+  echo "backup-saves: NAS is not mounted at $DG_BACKUP_MOUNT" >&2; exit 1; }
+
+DRY=""
+case "${1:-}" in
+  "") ;;
+  --dry-run) DRY="--dry-run" ;;
+  *) echo "backup-saves: unknown option $1" >&2; exit 2 ;;
+esac
+[ "$#" -le 1 ] || { echo "backup-saves: too many arguments" >&2; exit 2; }
+
+mkdir -p "$DG_BACKUP_ROOT" 2>/dev/null || {
+  echo "backup-saves: cannot reach backup root $DG_BACKUP_ROOT (NAS mounted?)" >&2; exit 1; }
+
+TAB="$(printf '\t')"
+names="$(mktemp)"          # one line per set that had something to mirror
+trap 'rm -f "$names"' EXIT
+n=0; absent=0
+while IFS="$TAB" read -r name kind rel; do
+  case "$name" in ''|\#*) continue ;; esac
+  n=$((n + 1))
+  case "$rel" in
+    /*) src="$rel" ;;       # absolute: native ports running on the host
+    *)  src="$DG_SAVE_BASE/$rel" ;;
+  esac
+  case "$kind" in
+    dir)
+      [ -d "$src" ] || {
+        absent=$((absent + 1)); printf '  –  %s (no local data: %s)\n' "$name" "$rel"; continue; }
+      mkdir -p "$DG_BACKUP_ROOT/$name"
+      # --no-g: the NAS squash maps every writer to a fixed uid:gid, so chgrp to
+      # the box's group always fails with EPERM (rsync exit 23) for no gain.
+      # shellcheck disable=SC2086  # $DRY is either empty or one flag
+      rsync -a --no-g $DRY "$src/" "$DG_BACKUP_ROOT/$name/"
+      ;;
+    file)
+      [ -f "$src" ] || {
+        absent=$((absent + 1)); printf '  –  %s (no local data: %s)\n' "$name" "$rel"; continue; }
+      mkdir -p "$DG_BACKUP_ROOT/$name"
+      # shellcheck disable=SC2086
+      rsync -a --no-g $DRY "$src" "$DG_BACKUP_ROOT/$name/"
+      ;;
+    *)
+      echo "backup-saves: bad manifest kind '$kind' for $name" >&2; exit 1 ;;
+  esac
+  printf '%s\n' "$name" >> "$names"
+  printf '  \342\234\223  %s (%s)\n' "$name" "$rel"
+done < "$MANIFEST"
+
+saved=$(sort -u "$names" | wc -l | tr -d ' ')
+echo "backup-saves: $saved sets backed up, $absent sources absent (of $n sources) -> $DG_BACKUP_ROOT${DRY:+  [dry-run]}"

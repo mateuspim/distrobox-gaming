@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ ! -f "{{ dg_nebula_exe }}" ]; then
+  printf '%s\n' 'Nebula is not installed.' >&2
+  exit 1
+fi
+cd "{{ dg_nebula_install_dir }}"
+exec /usr/bin/distrobox-enter -n "{{ dg_box_name }}" -- env \
+  WINEPREFIX="{{ dg_nebula_prefix }}/pfx" WINEDEBUG=-all \
+  wine "{{ dg_nebula_exe }}" "$@"

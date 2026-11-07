@@ -1,0 +1,131 @@
+---
+- name: Apply one-time display and controller baselines to existing PC ports
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Configure Conker's Bad Fur Day Recompiled
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_cbfd_config_dir }}/graphics.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_conker_graphics }}"
+
+    - name: Configure Road Rash 64 Recompiled
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_rr64_config_dir }}/graphics.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_roadrash_graphics }}"
+
+    - name: Configure Ship of Harkinian
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_ship_of_harkinian_install_dir }}/shipofharkinian.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_ship_graphics }}"
+
+    - name: Configure 2Ship2Harkinian
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_two_ship2harkinian_install_dir }}/2ship2harkinian.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_window_fullscreen }}"
+
+    - name: Configure SpaghettiKart
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_spaghettikart_install_dir }}/spaghettify.cfg.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_window_fullscreen }}"
+
+    - name: Configure G-Diffuser
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_gdiffuser_install_dir }}/gdiffuser.cfg.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_window_fullscreen }}"
+
+    - name: Configure G-Diffuser high-refresh interpolation
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_gdiffuser_install_dir }}/gdiffuser.cfg.json"
+        dg_pc_port_json_marker: "{{ dg_gdiffuser_install_dir }}/.dg-frame-rate-baseline"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_gdiffuser_frame_rate }}"
+
+    - name: Configure Sonic 3 A.I.R.
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_s3air_save_dir }}/settings.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_sonic3air_graphics }}"
+
+    - name: Configure Unleashed Recompiled for 4K and 120 FPS
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/seed-unleashed-video.py"
+          - "{{ dg_box_home }}/.config/UnleashedRecomp/config.toml"
+      environment:
+        DG_PC_PORT_UNLEASHED_VIDEO: "{{ dg_pc_port_unleashed_video | to_json }}"
+      register: _dg_unleashed_video_seed
+      changed_when: "'applied Unleashed video defaults' in _dg_unleashed_video_seed.stdout"
+
+    - name: Configure DKR-R Modern presentation on the 4K display
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/seed-pc-port-kv.py"
+          - "{{ dg_dkr_config_dir }}/dkr-port-settings.ini"
+      environment:
+        DG_PC_PORT_KV_DEFAULTS: "{{ dg_pc_port_dkr_graphics | to_json }}"
+      register: _dg_dkr_graphics_seed
+      changed_when: "'applied PC port key-value defaults' in _dg_dkr_graphics_seed.stdout"
+
+    - name: Configure Star Fox Enhanced high-quality presentation
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/seed-pc-port-kv.py"
+          - "{{ dg_sfe_game_dir }}/pregame.cfg"
+      environment:
+        DG_PC_PORT_KV_DEFAULTS: "{{ dg_pc_port_starfox_enhanced_graphics | to_json }}"
+      register: _dg_sfe_graphics_seed
+      changed_when: "'applied PC port key-value defaults' in _dg_sfe_graphics_seed.stdout"
+
+    - name: Configure Dusk fullscreen on the 4K display
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_dusk_user_data_root }}/config.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_dusk_graphics }}"
+
+    - name: Configure Render96ex fullscreen at 4K
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/seed-pc-port-kv.py"
+          - "{{ dg_box_home }}/.local/share/sm64ex/sm64config.txt"
+      environment:
+        DG_PC_PORT_KV_DEFAULTS: "{{ dg_pc_port_render96ex_graphics | to_json }}"
+      register: _dg_render96ex_graphics_seed
+      changed_when: "'applied PC port key-value defaults' in _dg_render96ex_graphics_seed.stdout"
+
+    - name: Configure TriAevum renderer at 4K and 90 Hz
+      ansible.builtin.include_role:
+        name: seed_pc_port_json
+      vars:
+        dg_pc_port_json_path: "{{ dg_triaevum_install_dir }}/data/config/TriAevum.json"
+        dg_pc_port_json_defaults: "{{ dg_pc_port_triaevum_graphics }}"
+
+    - name: Align TriAevum launch profile with its renderer config
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ dg_project_root }}/scripts/seed-pc-port-args.py"
+          - "{{ dg_triaevum_install_dir }}/TriAevum.launch.json"
+      environment:
+        DG_PC_PORT_ARG_DEFAULTS: "{{ dg_pc_port_triaevum_launch_args | to_json }}"
+      register: _dg_triaevum_launch_seed
+      changed_when: "'applied PC port launch arguments' in _dg_triaevum_launch_seed.stdout"

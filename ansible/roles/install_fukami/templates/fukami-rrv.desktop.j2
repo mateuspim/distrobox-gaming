@@ -1,0 +1,11 @@
+{% from 'ogm-desktop-entry.j2' import ogm_metadata with context -%}
+[Desktop Entry]
+Name=Ridge Racer V · Fukami
+Exec={{ dg_fukami_launcher }}
+Terminal=false
+Type=Application
+Icon={{ dg_fukami_app_dir }}/share/fukami.png
+Comment=Native Ridge Racer V recompilation.
+Categories=Game;
+Keywords=ridge;racer;ps2;fukami;
+{{ ogm_metadata('gaming-fukami-rrv') }}

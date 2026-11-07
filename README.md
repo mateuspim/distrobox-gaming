@@ -360,6 +360,11 @@ The `extract_ps3_dlc.py` extractor uses the PKG's filename version
 `PARAM.SFO` VERSION to decide whether to re-extract. Re-running after
 all patches are applied is a no-op.
 
+The update checker only publishes a downloaded `.pkg` after its size matches
+the PSN metadata. Incomplete transfers are cleaned up, and cached packages
+with the wrong size are reported as missing so they can be downloaded again.
+`--download` exits nonzero if any requested patch fails to download.
+
 ### Capping a game at a specific patch version
 
 Some PS3 games regress on current RPCS3 when patched to the latest
@@ -510,6 +515,7 @@ Core setup & rebuild:
 
 - **[Sources & downloads](docs/sources.md)** — upstream repos/pages for every native port, recomp, decomp, fan game and ROM-hack tool, if you want to grab a build yourself
 - **[Save backups](docs/save-backups.md)** — mirror emulator/PC-port saves to the NAS (`backup-saves`) and restore them on a fresh remount (`restore-saves`)
+- **[Restricted game runtime](docs/game-runtime-security.md)** — the migrated `gaming` container and a narrower Lichii runtime
 - [Rebuild Runbook](docs/rebuild-runbook.md) — from-scratch rebuild, opt-in tags, standalone playbooks
 - [External Installers](docs/external-installers.md) — download inventory for the opt-in Windows/Wine games and tools
 - [ogm launcher integration](docs/ogm-launcher.md) — omarchy-games-menu catalog fragment, `ogm scan` hooks
@@ -532,6 +538,7 @@ Mods, patches & HD textures:
 Windows / Wine games:
 
 - [PC Racing Games](docs/pc-racing.md) — Colin McRae Rally, OutRun 2006, Sega Rally, DiRT
+- [PC racing launcher opportunities](docs/pc-racing-launcher-opportunities.md) — existing community tools and candidates for a simpler setup launcher
 - **[Driveclub shadPS4](docs/driveclub-shadps4.md)** — working v1.00 recipe, all dead ends captured
 - [GT5 Master Mod](docs/gt5-master-mod.md) · [Project Forza Plus (FM2/3/4/FH1 on Xenia)](docs/project-forza.md)
 - [Sonic Project '06](docs/sonic-p06.md) · [Hedge Mod Manager](docs/hedge-mod-manager.md) · [Dusk / Twilight Princess](docs/dusk-twilight-princess.md)

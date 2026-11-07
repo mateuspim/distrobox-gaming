@@ -56,7 +56,20 @@ When present, the role copies them into the box-local melonDS configuration
 because the emulator may modify its firmware copy. Missing files produce a
 warning and do not block the rest of the core configuration.
 
+## Arcade Model 3 Virtua Fighter 3
+
+The optional [Virtua Fighter 3 Recomp](vf3-recomp.md) requires the MAME
+Revision D `vf3.zip` set at `dg_vf3_rom_zip`, derived from
+`dg_roms_final_root/arcade/model3`. The launcher reads the archive in place;
+the role verifies its SHA-256 and never moves or modifies it. `vf3tb.zip` is
+not supported by this port.
+
 ## PCSX2 texture packs — GT4 & friends
+
+The optional [GT4 static recompilation](gt4-recomp.md) uses the unpatched USA
+retail SCUS-97328 ISO at `dg_gt4r_iso` under `dg_roms_final_root`. Its pinned
+game code is reconstructed into an executable without copying the 5 GB ISO.
+The Spec II SCUS-97436 image in `dg_rom_heavy_root` remains a PCSX2 asset.
 
 **Variable:** `dg_pcsx2_ps2_root` (default `{{ dg_external_games_root }}/ps2`).
 
@@ -174,6 +187,32 @@ Xenia Manager auto-indexes `xbox360/`. See `docs/project-forza.md` for
 the PFP install flow — downloads are from the PFP author's Google
 Drive links (listed at the end of that doc).
 
+## Xbox (original) game assets
+
+RalliSport Challenge 2 Recompiled uses the owned Xbox ISO at `dg_rsc2_iso`
+(`dg_rom_heavy_root/xbox/` by default). The optional `install_rsc2` role
+extracts the game files into `dg_rsc2_game_dir` under `dg_roms_final_root/xbox/`
+and checks the NTSC `default.xbe` hash before linking that directory into its
+native Linux release. See [RSC2 setup](rsc2.md).
+
+## Genesis game assets
+
+Mickey & Donald Collection needs three Genesis ROMs with the exact Castle of
+Illusion, QuackShot Rev 0, and World of Illusion checksums in
+`dg_mdc_roms`. The defaults source two from `dg_rom_root/genesis/` and QuackShot
+from `dg_roms_final_root/genesis/`; the EmuDeck QuackShot Rev 1 dump is not
+compatible. The role links the ROMs and leaves the originals untouched. See
+[collection setup](mickey-donald-collection.md).
+
+## N64 007 game asset
+
+I Could Have Given You The World requires the USA revision 0 dump of
+`007 - The World Is Not Enough`. The tested byte-swapped source is
+`dg_twine_rom_source` under `dg_rom_mid_root/n64/`. `install_twine` verifies
+its SHA-256, writes a normalized big-endian copy beside the installed
+AppImage, and verifies that copy against upstream's exact required SHA-256.
+The original dump stays untouched. See [007 setup](twine-007.md).
+
 ## Xbox (original) BIOS
 
 **Variables:** `dg_xemu_bootrom_source`, `dg_xemu_flashrom_source`,
@@ -190,6 +229,15 @@ Source separately — these are not redistributable.
 
 See `docs/driveclub-shadps4.md` for the full flow. The game lives
 under `dg_ps4_rom_root/CUSA00003/` by default.
+
+## Code Veronica X HD recomp
+
+The Windows port needs the US PSN **NPUB30467** base game with `APP_VER=01.00`
+as a folder containing `PARAM.SFO` and `USRDIR/EBOOT.BIN`. The optional role
+extracts the owner-provided base PKG from `dg_cv_pkg` if `dg_cv_game_dir` is
+absent. A matching owner-provided `.rap` license is required at
+`dg_cv_rap_file`; the separate crack PKG is not a license and is not used.
+See [the installation page](code-veronica-recomp.md).
 
 ## Troubleshooting
 

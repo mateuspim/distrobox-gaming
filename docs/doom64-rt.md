@@ -21,15 +21,19 @@ The AppImage needs a `game/` dir beside it with:
 
 | File | Source | Status |
 |---|---|---|
-| Doom 64: **Retribution v1.5** (whole archive — WAD, brightmaps, soundfont) | [ModDB](https://www.moddb.com/mods/doom-64-retribution) | **user download** — ModDB is Cloudflare-walled for curl; save as `retribution-v1.5.zip` in the NAS dir |
-| `D64MUS.PK3` (OGG music pack v1.3) | [ModDB addon](https://www.moddb.com/mods/doom-64-retribution/addons/doom-64-retribution-ogg-music-pack-v13) | **user download** — save as `d64mus.zip` |
+| Doom 64: **Retribution v1.5** (whole archive — WAD, brightmaps, soundfont) | [ModDB](https://www.moddb.com/mods/doom-64-retribution) | ✅ `ROMS_FINAL/PC/releases/D64RTRv1.5.zip` |
+| `D64MUS.PK3` (OGG music pack v1.3) | [ModDB addon](https://www.moddb.com/mods/doom-64-retribution/addons/doom-64-retribution-ogg-music-pack-v13) | ✅ `ROMS_FINAL/PC/releases/D64MUS.zip` |
 | `doom2.wad` (DOOM II, required IWAD) | copied by the role from `Emulators/Doom/GZDOOM/DOOM2.WAD` | ✅ local |
 
-The role flattens the Retribution archive's top-level folder, drops
-D64MUS.PK3 + doom2.wad in, and verifies with the AppImage's own
-`./doom64-rt-*.AppImage check`. Until the two ModDB zips land on the NAS
-(`ROMS_FINAL/PC/doom64-rt/`), the role installs everything else and prints
-the download instructions — re-run the playbook once they're there.
+The exact ModDB downloads are `D64RTRv1.5.ZIP` (28,465,541 bytes, MD5
+`ddc3b438bb3a68306bc2900389b59b61`) and `D64MUS.ZIP` (73,344,335 bytes,
+MD5 `91c5b71683f36260ab9b0e29643cea34`). The role uses the original
+downloads directly from `ROMS_FINAL/PC`. The old `Doom64-RT` engine ZIP
+in the PC collection has only a placeholder in its `game/` directory; it is
+not either of these downloads.
+
+The role extracts the Retribution archive, drops D64MUS.PK3 + doom2.wad in,
+and verifies with the AppImage's own `./doom64-rt-*.AppImage check`.
 
 ## Install / run / revert
 
