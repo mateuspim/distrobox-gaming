@@ -15,6 +15,68 @@ ansible-playbook site-console-emulators.yml -e @profiles/odin.yml --tags bootstr
 ansible-playbook site-console-emulators.yml -e @profiles/odin.yml --tags configure
 ```
 
+## Read-only SMB ROM library
+
+The focused playbook can mount one SMB share on the **host** and bind only its
+`switch`, `ps3`, `ps4`, and `wiiu` directories into the existing EmuDeck
+paths. It never downloads, copies, extracts, or modifies games, keys, BIOS,
+firmware, or PS4 system modules. Existing local directories are covered while
+the bind mount is active; their contents are not deleted and return if the
+mount is removed.
+
+Keep the UNC address and credentials out of tracked profiles. Add the share
+address to ignored `ansible/host_vars/localhost.yml` (SMB URIs use `//`, not
+`smb://`):
+
+```yaml
+dg_smb_roms_enabled: true
+dg_smb_rom_share: //server/roms
+# These defaults are optional to repeat:
+# dg_smb_rom_mountpoint: /mnt/roms
+# dg_smb_rom_credentials_file: /etc/smbcredentials/distrobox-gaming-roms
+```
+
+Create the root-only credentials file on the host; do not put it in Ansible,
+a shell history, or this repository:
+
+```sh
+sudo install -d -m 0700 /etc/smbcredentials
+sudoedit /etc/smbcredentials/distrobox-gaming-roms
+sudo chmod 0600 /etc/smbcredentials/distrobox-gaming-roms
+```
+
+Its contents use the standard `mount.cifs` format:
+
+```ini
+username=your-smb-user
+password=your-smb-password
+# domain=optional-domain
+```
+
+Then mount, map, configure, and verify only the selected console setup:
+
+```sh
+ansible-playbook site-console-emulators.yml -e @profiles/odin.yml \
+  --tags configure,verify --ask-become-pass
+```
+
+The role writes a managed `/etc/fstab` root mount plus four read-only bind
+mounts. It may stop the existing `gaming` distrobox once if its private mount
+namespace cannot see new host mounts; this preserves the container image layer
+and the bind-mounted box home, but closes programs running in that box. A
+rerun is idempotent and confirms host CIFS mounts, rootless-box read access,
+the ES-DE paths and enumeration, the four package/launcher boundaries, and
+desktop-file validity.
+
+The expected share layout and mappings are:
+
+| Share directory | Existing emulator / ES-DE path |
+| --- | --- |
+| `switch/` | `{{ dg_emudeck_root }}/roms_heavy/switch` (Eden) |
+| `ps3/` | `{{ dg_emudeck_root }}/roms_heavy/ps3` (RPCS3) |
+| `ps4/` | `{{ dg_emudeck_root }}/roms_rare/ps4` (shadPS4) |
+| `wiiu/` | `{{ dg_emudeck_root }}/roms_heavy/wiiu` (Cemu) |
+
 The bootstrap stage selects only `eden-bin`, `shadps4-bin`, `rpcs3-bin`, and
 `cemu-bin` in addition to the already installed core package set. It does not
 select xemu, Supermodel, Vita3K, 3dsconv, extract-xiso, flips, container Steam,

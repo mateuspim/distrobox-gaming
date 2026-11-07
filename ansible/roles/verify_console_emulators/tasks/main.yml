@@ -1,0 +1,117 @@
+---
+# Focused verification for site-console-emulators.yml.  It intentionally
+# checks only Eden, shadPS4, RPCS3, and Cemu, leaving Steam native and avoiding
+# the broader historical verify role's firmware/game expectations.
+
+- name: Verify selected console emulator commands
+  ansible.builtin.shell: "{{ dg_in_box }} sh -lc 'command -v {{ item.command }}'"
+  loop: "{{ dg_smb_rom_bindings }}"
+  loop_control:
+    label: "{{ item.command }}"
+  register: _console_command_checks
+  changed_when: false
+  failed_when: false
+
+- name: Assert selected console emulator commands are installed
+  ansible.builtin.assert:
+    that: item.rc == 0
+    fail_msg: "Missing selected console emulator command in box: {{ item.item.command }}"
+  loop: "{{ _console_command_checks.results }}"
+  loop_control:
+    label: "{{ item.item.command }}"
+
+- name: Verify selected console emulator packages are installed
+  ansible.builtin.shell: "{{ dg_in_box }} pacman -Q {{ item.package }}"
+  loop: "{{ dg_smb_rom_bindings | selectattr('package', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.package }}"
+  register: _console_package_checks
+  changed_when: false
+  failed_when: false
+
+- name: Assert selected console emulator packages are present
+  ansible.builtin.assert:
+    that: item.rc == 0
+    fail_msg: "Missing selected console emulator package in box: {{ item.item.package }}"
+  loop: "{{ _console_package_checks.results }}"
+  loop_control:
+    label: "{{ item.item.package }}"
+
+- name: Verify excluded emulator and Steam packages remain absent
+  ansible.builtin.shell: |
+    set -eu
+    for package in rpcs3-bin xemu-bin supermodel vita3k-bin 3dsconv extract-xiso-bin flips steam; do
+      if {{ dg_in_box }} pacman -Q "$package" >/dev/null 2>&1; then
+        echo "unexpected package: $package" >&2
+        exit 1
+      fi
+    done
+  changed_when: false
+
+- name: Stat focused console emulator launchers
+  ansible.builtin.stat:
+    path: "{{ dg_host_applications_dir }}/{{ item.launcher }}"
+  loop: "{{ dg_smb_rom_bindings }}"
+  loop_control:
+    label: "{{ item.launcher }}"
+  register: _console_launchers
+
+- name: Assert focused console emulator launchers exist
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "Missing host launcher: {{ item.item.launcher }}"
+  loop: "{{ _console_launchers.results }}"
+  loop_control:
+    label: "{{ item.item.launcher }}"
+
+- name: Validate focused console emulator desktop files
+  ansible.builtin.command:
+    argv: [desktop-file-validate, "{{ dg_host_applications_dir }}/{{ item.launcher }}"]
+  loop: "{{ dg_smb_rom_bindings }}"
+  loop_control:
+    label: "{{ item.launcher }}"
+  changed_when: false
+
+- name: Assert excluded emulator and Steam launchers remain absent
+  ansible.builtin.stat:
+    path: "{{ dg_host_applications_dir }}/{{ item }}"
+  loop:
+    - gaming-xemu.desktop
+    - gaming-supermodel.desktop
+    - gaming-vita3k.desktop
+    - gaming-eden-cheats-manager.desktop
+    - gaming-steam.desktop
+  register: _excluded_launchers
+
+- name: Check excluded launcher boundary
+  ansible.builtin.assert:
+    that: not item.stat.exists
+    fail_msg: "Unexpected launcher created by focused console setup: {{ item.item }}"
+  loop: "{{ _excluded_launchers.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Verify ES-DE maps the four selected console-system paths
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -F
+      - "<path>{{ item.target }}</path>"
+      - "{{ dg_box_home }}/ES-DE/custom_systems/es_systems.xml"
+  loop: "{{ dg_smb_rom_bindings }}"
+  loop_control:
+    label: "{{ item.system }}"
+  changed_when: false
+
+- name: Verify SMB-backed paths can be enumerated by ES-DE's distrobox view
+  when: dg_smb_roms_enabled | bool
+  ansible.builtin.shell: |
+    set -eu
+    {{ dg_in_box }} sh -lc '
+      set -eu
+      {% for binding in dg_smb_rom_bindings %}
+      test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}")" = cifs
+      find "{{ binding.target }}" -mindepth 0 -maxdepth 1 -print >/dev/null
+      {% endfor %}
+    '
+  changed_when: false

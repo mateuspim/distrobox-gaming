@@ -35,6 +35,15 @@
 # dg_rom_rare_root:   "{{ dg_emudeck_root }}/roms_rare"
 # dg_bios_root:       "{{ dg_emudeck_root }}/Emulation/bios"
 #
+# Optional read-only SMB ROM share for the focused console-emulator playbook.
+# Keep the server address and the credentials file local; neither belongs in
+# profiles/ nor group_vars/.  The mounted share must contain switch/, ps3/,
+# ps4/, and wiiu/ at its root.  See docs/odin-console-emulators.md.
+# dg_smb_roms_enabled: true
+# dg_smb_rom_share: //server/roms
+# dg_smb_rom_mountpoint: /mnt/roms
+# dg_smb_rom_credentials_file: /etc/smbcredentials/distrobox-gaming-roms
+#
 # libretro cheat DB (clone of github.com/libretro/libretro-database).
 # Used by DuckStation to pull GT2 widescreen fix packs. Skip this
 # variable if you don't clone the DB — the DuckStation cheats task

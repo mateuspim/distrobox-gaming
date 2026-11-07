@@ -6,7 +6,9 @@
   roles:
     - { role: bootstrap_packages, tags: [bootstrap, packages] }
     - { role: install_rpcs3,      tags: [rpcs3], when: dg_rpcs3_enabled | bool }
+    - { role: mount_smb_roms,     tags: [configure, storage, smb_roms] }
     - { role: seed_configs,       tags: [configure, configs] }
     - { role: scripts_in_box,     tags: [configure, scripts] }
     - { role: configure_esde,     tags: [configure, esde] }
     - { role: desktop_apps,       tags: [configure, desktop] }
+    - { role: verify_console_emulators, tags: [verify, console_emulators] }

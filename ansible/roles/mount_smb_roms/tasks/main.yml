@@ -1,0 +1,250 @@
+---
+# Mount a host SMB share once, then bind only the four selected console-system
+# directories into their existing EmuDeck paths.  The bind targets are hidden
+# while mounted but are never deleted or modified.
+
+- name: Mount and map SMB ROM share
+  when: dg_smb_roms_enabled | bool
+  block:
+    - name: Assert SMB ROM-share configuration is complete
+      ansible.builtin.assert:
+        that:
+          - dg_smb_rom_share is match('^//[^/]+/[^/]+$')
+          - dg_smb_rom_mountpoint is match('^/.*')
+          - dg_smb_rom_credentials_file is match('^/.*')
+          - dg_smb_rom_bindings | length == 4
+          - dg_smb_rom_bindings | map(attribute='enabled') | map('bool') | select | list | length == 4
+        fail_msg: >-
+          Set dg_smb_rom_share to a UNC share such as //server/roms in the
+          ignored host_vars/localhost.yml.  Keep credentials in
+          {{ dg_smb_rom_credentials_file }}, not in Ansible variables.
+
+    - name: Ensure the host CIFS mount helper is installed
+      become: true
+      ansible.builtin.package:
+        name: cifs-utils
+        state: present
+
+    - name: Check root-only SMB credentials file
+      become: true
+      ansible.builtin.stat:
+        path: "{{ dg_smb_rom_credentials_file }}"
+      register: _smb_credentials
+      no_log: true
+
+    - name: Assert SMB credentials file is protected
+      ansible.builtin.assert:
+        that:
+          - _smb_credentials.stat.exists
+          - _smb_credentials.stat.isreg
+          - not (_smb_credentials.stat.islnk | default(false))
+          - _smb_credentials.stat.uid == 0
+          - _smb_credentials.stat.gid == 0
+          - _smb_credentials.stat.mode == '0600'
+        fail_msg: >-
+          Create {{ dg_smb_rom_credentials_file }} as root with mode 0600.
+          It must contain SMB username/password fields and must not be stored
+          in this repository.
+      no_log: true
+
+    - name: Ensure SMB root mountpoint exists
+      become: true
+      ansible.builtin.file:
+        path: "{{ dg_smb_rom_mountpoint }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Record existing system mountpoints
+      ansible.builtin.command:
+        argv: [mountpoint, -q, "{{ item.target }}"]
+      loop: "{{ dg_smb_rom_bindings }}"
+      loop_control:
+        label: "{{ item.system }}"
+      register: _smb_target_mountpoints
+      changed_when: false
+      failed_when: false
+
+    - name: Ensure EmuDeck system mountpoints exist
+      become: true
+      ansible.builtin.file:
+        path: "{{ item.item.target }}"
+        state: directory
+        owner: "{{ dg_host_uid }}"
+        group: "{{ dg_host_gid }}"
+        mode: "0755"
+      loop: "{{ _smb_target_mountpoints.results }}"
+      loop_control:
+        label: "{{ item.item.system }}"
+      when: item.rc != 0
+
+    - name: Persist SMB root mount in fstab
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/fstab
+        marker: "# {mark} ANSIBLE MANAGED DISTROBOX GAMING SMB ROM ROOT"
+        block: >-
+          {{ dg_smb_rom_share }} {{ dg_smb_rom_mountpoint }} cifs
+          {{ dg_smb_rom_mount_options }} 0 0
+      register: _smb_root_fstab
+
+    - name: Persist SMB system bind mounts in fstab
+      become: true
+      ansible.builtin.blockinfile:
+        path: /etc/fstab
+        marker: "# {mark} ANSIBLE MANAGED DISTROBOX GAMING SMB ROM SYSTEMS"
+        block: |
+          {% for binding in dg_smb_rom_bindings %}
+          {{ binding.source }} {{ binding.target }} none bind,nofail,x-systemd.requires-mounts-for={{ dg_smb_rom_mountpoint }} 0 0
+          {% endfor %}
+      register: _smb_bind_fstab
+
+    - name: Reload systemd's fstab generator
+      become: true
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+      when: _smb_root_fstab.changed or _smb_bind_fstab.changed
+
+    - name: Check SMB root mount state
+      ansible.builtin.command:
+        argv: [mountpoint, -q, "{{ dg_smb_rom_mountpoint }}"]
+      register: _smb_root_mounted
+      changed_when: false
+      failed_when: false
+
+    - name: Mount SMB root from fstab
+      become: true
+      ansible.builtin.command:
+        argv: [mount, "{{ dg_smb_rom_mountpoint }}"]
+      when: _smb_root_mounted.rc != 0
+      changed_when: true
+
+    # x-systemd.automount initially presents an autofs mount.  Touching the
+    # root activates the actual CIFS mount before its type is checked below.
+    - name: Activate SMB root automount
+      ansible.builtin.command:
+        argv: [find, "{{ dg_smb_rom_mountpoint }}", -mindepth, "0", -maxdepth, "0", -print]
+      changed_when: false
+
+    - name: Verify SMB root has a CIFS mount
+      ansible.builtin.command:
+        argv: [findmnt, -n, -o, FSTYPE, --target, "{{ dg_smb_rom_mountpoint }}"]
+      register: _smb_root_fstype
+      changed_when: false
+
+    - name: Verify SMB root source
+      ansible.builtin.command:
+        argv: [findmnt, -n, -o, SOURCE, --target, "{{ dg_smb_rom_mountpoint }}"]
+      register: _smb_root_source
+      changed_when: false
+
+    - name: Assert SMB root is mounted as CIFS
+      ansible.builtin.assert:
+        that:
+          - _smb_root_fstype.stdout | trim == 'cifs'
+          - _smb_root_source.stdout | trim == dg_smb_rom_share
+        fail_msg: >-
+          SMB ROM root is not the requested CIFS share:
+          {{ dg_smb_rom_mountpoint }}
+
+    - name: Verify SMB system source directories are readable
+      ansible.builtin.stat:
+        path: "{{ item.source }}"
+      loop: "{{ dg_smb_rom_bindings }}"
+      loop_control:
+        label: "{{ item.system }}"
+      register: _smb_source_dirs
+
+    - name: Assert SMB share layout contains all system directories
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+          - item.stat.readable
+        fail_msg: "SMB ROM directory is missing or unreadable: {{ item.item.source }}"
+      loop: "{{ _smb_source_dirs.results }}"
+      loop_control:
+        label: "{{ item.item.system }}"
+
+    - name: Check system bind-mount state
+      ansible.builtin.command:
+        argv: [mountpoint, -q, "{{ item.target }}"]
+      loop: "{{ dg_smb_rom_bindings }}"
+      loop_control:
+        label: "{{ item.system }}"
+      register: _smb_system_mounted
+      changed_when: false
+      failed_when: false
+
+    - name: Mount SMB system directories from fstab
+      become: true
+      ansible.builtin.command:
+        argv: [mount, "{{ item.item.target }}"]
+      loop: "{{ _smb_system_mounted.results }}"
+      loop_control:
+        label: "{{ item.item.system }}"
+      when: item.rc != 0
+      changed_when: true
+
+    - name: Verify host system directories are readable CIFS mounts
+      ansible.builtin.shell: |
+        set -eu
+        test -d "{{ item.target }}"
+        test -r "{{ item.target }}"
+        test "$(findmnt -n -o FSTYPE --target "{{ item.target }}")" = cifs
+        find "{{ item.target }}" -mindepth 0 -maxdepth 0 -print >/dev/null
+      args:
+        executable: /bin/sh
+      loop: "{{ dg_smb_rom_bindings }}"
+      loop_control:
+        label: "{{ item.system }}"
+      changed_when: false
+
+    - name: Check SMB mounts are visible in the existing distrobox
+      ansible.builtin.shell: |
+        set -eu
+        {{ dg_in_box }} sh -lc '
+          set -eu
+          {% for binding in dg_smb_rom_bindings %}
+          test -d "{{ binding.target }}"
+          test -r "{{ binding.target }}"
+          test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}")" = cifs
+          find "{{ binding.target }}" -mindepth 0 -maxdepth 0 -print >/dev/null
+          {% endfor %}
+        '
+      register: _smb_box_visibility
+      changed_when: false
+      failed_when: false
+
+    - name: Restart existing distrobox once to refresh its private mount namespace
+      ansible.builtin.command:
+        argv: [distrobox-stop, --yes, "{{ dg_box_name }}"]
+      when:
+        - _smb_box_visibility.rc != 0
+        - dg_smb_rom_restart_box_on_visibility_failure | bool
+      changed_when: true
+
+    - name: Recheck SMB mount visibility after distrobox restart
+      ansible.builtin.shell: |
+        set -eu
+        {{ dg_in_box }} sh -lc '
+          set -eu
+          {% for binding in dg_smb_rom_bindings %}
+          test -d "{{ binding.target }}"
+          test -r "{{ binding.target }}"
+          test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}")" = cifs
+          find "{{ binding.target }}" -mindepth 0 -maxdepth 0 -print >/dev/null
+          {% endfor %}
+        '
+      register: _smb_box_visibility_after_restart
+      changed_when: false
+      failed_when: false
+
+    - name: Assert SMB mounts are readable in the rootless distrobox
+      ansible.builtin.assert:
+        that: _smb_box_visibility_after_restart.rc == 0
+        fail_msg: >-
+          SMB ROM mounts are not visible as CIFS inside {{ dg_box_name }}.
+          The host mounts remain intact; inspect the box volume propagation
+          before changing or recreating the box.

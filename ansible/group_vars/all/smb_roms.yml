@@ -1,0 +1,54 @@
+---
+# Optional host SMB ROM share for the selected console-emulator profile.
+# Keep the server/share and all credentials in host_vars/localhost.yml; this
+# tracked file deliberately contains only portable defaults.
+dg_smb_roms_enabled: false
+dg_smb_rom_share: ""
+dg_smb_rom_mountpoint: /mnt/roms
+dg_smb_rom_credentials_file: /etc/smbcredentials/distrobox-gaming-roms
+
+# The mounted share is a read-only source of game dumps.  uid/gid make its
+# ownership predictable for both the host user and the rootless distrobox.
+# Do not force a protocol version here: negotiate the highest version the NAS
+# and client both support.
+dg_smb_rom_mount_options: >-
+  ro,nofail,credentials={{ dg_smb_rom_credentials_file }},uid={{ dg_host_uid }},gid={{ dg_host_gid }},file_mode=0444,dir_mode=0555,nosuid,nodev,noexec,_netdev,x-systemd.automount,x-systemd.idle-timeout=600
+
+# A rootless container has an rprivate bind for dg_emudeck_root.  If the SMB
+# mounts were added after that box was created, stopping it once lets the
+# runtime construct a fresh mount namespace without deleting its image layer
+# or bind-mounted home.
+dg_smb_rom_restart_box_on_visibility_failure: true
+
+# One source of truth for the four mounted systems, ES-DE paths, package
+# checks, and host launchers.  Do not add firmware, keys, BIOS, or staging
+# directories here: this role maps game-library directories only.
+dg_smb_rom_bindings:
+  - system: switch
+    source: "{{ dg_smb_rom_mountpoint }}/switch"
+    target: "{{ dg_rom_heavy_root }}/switch"
+    enabled: "{{ dg_eden_enabled }}"
+    command: eden
+    package: eden-bin
+    launcher: gaming-eden.desktop
+  - system: ps3
+    source: "{{ dg_smb_rom_mountpoint }}/ps3"
+    target: "{{ dg_rom_heavy_root }}/ps3"
+    enabled: "{{ dg_rpcs3_enabled }}"
+    # RPCS3 is the repo-managed AppImage (install_rpcs3), not a pacman package.
+    command: "{{ dg_rpcs3_launch }}"
+    launcher: gaming-rpcs3.desktop
+  - system: ps4
+    source: "{{ dg_smb_rom_mountpoint }}/ps4"
+    target: "{{ dg_ps4_rom_root }}"
+    enabled: "{{ dg_shadps4_enabled }}"
+    command: shadps4
+    package: shadps4-bin
+    launcher: gaming-shadps4-gui.desktop
+  - system: wiiu
+    source: "{{ dg_smb_rom_mountpoint }}/wiiu"
+    target: "{{ dg_rom_heavy_root }}/wiiu"
+    enabled: "{{ dg_cemu_enabled }}"
+    command: cemu
+    package: cemu-bin
+    launcher: gaming-cemu.desktop
