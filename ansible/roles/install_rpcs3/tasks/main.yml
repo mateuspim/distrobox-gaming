@@ -2,12 +2,13 @@
 # RPCS3 as a repo-managed, sha256-pinned upstream AppImage (replaces the stale
 # AUR rpcs3-bin). See group_vars/all/rpcs3.yml and docs/ps3-library.md.
 
-- name: Ensure RPCS3 install + bin directories exist
+- name: Ensure RPCS3 staging, install + bin directories exist
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: "0755"
   loop:
+    - "{{ dg_rpcs3_asset_staging | dirname }}"
     - "{{ dg_rpcs3_install_dir }}"
     - "{{ dg_box_home }}/bin"
 
