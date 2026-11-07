@@ -87,6 +87,10 @@ dg_xemu_hdd: "{{ dg_xemu_data_dir }}/xbox_hdd.qcow2"
 
 dg_desktop_render_dir: "{{ dg_project_root }}/config/desktop/rendered"
 dg_host_applications_dir: "{{ ansible_facts.env.HOME }}/.local/share/applications"
+# Hide the box's host entries from desktop launchers (Omarchy's Super+Space)
+# with NoDisplay=true; they are launched from the pym.distrobox bar widget
+# instead. gtk-launch still starts NoDisplay entries.
+dg_desktop_no_display: true
 
 dg_project_root: "{{ playbook_dir | dirname }}"
 
