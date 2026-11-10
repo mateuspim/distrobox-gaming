@@ -109,8 +109,8 @@
     set -eu
     {{ dg_in_box }} sh -lc '
       set -eu
-      {% for binding in dg_smb_rom_bindings %}
-      test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}")" = cifs
+      {% for binding in dg_smb_rom_mounted_bindings %}
+      test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}" | tail -n 1)" = cifs
       find "{{ binding.target }}" -mindepth 0 -maxdepth 1 -print >/dev/null
       {% endfor %}
     '

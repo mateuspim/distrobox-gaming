@@ -70,12 +70,14 @@
 #
 # Optional read-only SMB ROM share for the focused console-emulator playbook.
 # Keep the server address and the credentials file local; neither belongs in
-# profiles/ nor group_vars/.  The mounted share must contain switch/, ps3/,
-# ps4/, and wiiu/ at its root.  See docs/odin-console-emulators.md.
+# profiles/ nor group_vars/.  The mounted share must contain a directory
+# at its root for each system in dg_smb_rom_systems.  See docs/odin-console-emulators.md.
 # dg_smb_roms_enabled: true
 # dg_smb_rom_share: //server/roms
 # dg_smb_rom_mountpoint: /mnt/roms
 # dg_smb_rom_credentials_file: /etc/smbcredentials/distrobox-gaming-roms
+# Mount only the systems the share actually has (default: all four).
+# dg_smb_rom_systems: [switch, ps3, wiiu]
 #
 # libretro cheat DB (clone of github.com/libretro/libretro-database).
 # Used by DuckStation to pull GT2 widescreen fix packs. Skip this

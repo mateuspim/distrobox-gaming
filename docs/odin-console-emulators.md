@@ -60,8 +60,11 @@ ansible-playbook site-console-emulators.yml -e @profiles/odin.yml \
   --tags configure,verify --ask-become-pass
 ```
 
-The role writes a managed `/etc/fstab` root mount plus four read-only bind
-mounts. It may stop the existing `gaming` distrobox once if its private mount
+The role writes a managed `/etc/fstab` root mount plus one read-only bind
+mount per system in `dg_smb_rom_systems` (default: all four). If the share
+lacks a system directory, leave it out, e.g.
+`dg_smb_rom_systems: [switch, ps3, wiiu]` in `host_vars/localhost.yml`; that
+system keeps its local EmuDeck directory. It may stop the existing `gaming` distrobox once if its private mount
 namespace cannot see new host mounts; this preserves the container image layer
 and the bind-mounted box home, but closes programs running in that box. A
 rerun is idempotent and confirms host CIFS mounts, rootless-box read access,

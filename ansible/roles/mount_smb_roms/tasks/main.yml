@@ -1,5 +1,5 @@
 ---
-# Mount a host SMB share once, then bind only the four selected console-system
+# Mount a host SMB share once, then bind only the selected console-system
 # directories into their existing EmuDeck paths.  The bind targets are hidden
 # while mounted but are never deleted or modified.
 
@@ -12,12 +12,14 @@
           - dg_smb_rom_share is match('^//[^/]+/[^/]+$')
           - dg_smb_rom_mountpoint is match('^/.*')
           - dg_smb_rom_credentials_file is match('^/.*')
-          - dg_smb_rom_bindings | length == 4
-          - dg_smb_rom_bindings | map(attribute='enabled') | map('bool') | select | list | length == 4
+          - dg_smb_rom_mounted_bindings | length > 0
+          - dg_smb_rom_mounted_bindings | length == dg_smb_rom_systems | length
+          - dg_smb_rom_mounted_bindings | map(attribute='enabled') | map('bool') | reject | list | length == 0
         fail_msg: >-
           Set dg_smb_rom_share to a UNC share such as //server/roms in the
           ignored host_vars/localhost.yml.  Keep credentials in
           {{ dg_smb_rom_credentials_file }}, not in Ansible variables.
+          dg_smb_rom_systems must name known systems whose emulators are enabled.
 
     - name: Ensure the host CIFS mount helper is installed
       become: true
@@ -59,7 +61,7 @@
     - name: Record existing system mountpoints
       ansible.builtin.command:
         argv: [mountpoint, -q, "{{ item.target }}"]
-      loop: "{{ dg_smb_rom_bindings }}"
+      loop: "{{ dg_smb_rom_mounted_bindings }}"
       loop_control:
         label: "{{ item.system }}"
       register: _smb_target_mountpoints
@@ -95,7 +97,7 @@
         path: /etc/fstab
         marker: "# {mark} ANSIBLE MANAGED DISTROBOX GAMING SMB ROM SYSTEMS"
         block: |
-          {% for binding in dg_smb_rom_bindings %}
+          {% for binding in dg_smb_rom_mounted_bindings %}
           {{ binding.source }} {{ binding.target }} none bind,nofail,x-systemd.requires-mounts-for={{ dg_smb_rom_mountpoint }} 0 0
           {% endfor %}
       register: _smb_bind_fstab
@@ -151,7 +153,7 @@
     - name: Verify SMB system source directories are readable
       ansible.builtin.stat:
         path: "{{ item.source }}"
-      loop: "{{ dg_smb_rom_bindings }}"
+      loop: "{{ dg_smb_rom_mounted_bindings }}"
       loop_control:
         label: "{{ item.system }}"
       register: _smb_source_dirs
@@ -170,7 +172,7 @@
     - name: Check system bind-mount state
       ansible.builtin.command:
         argv: [mountpoint, -q, "{{ item.target }}"]
-      loop: "{{ dg_smb_rom_bindings }}"
+      loop: "{{ dg_smb_rom_mounted_bindings }}"
       loop_control:
         label: "{{ item.system }}"
       register: _smb_system_mounted
@@ -192,11 +194,11 @@
         set -eu
         test -d "{{ item.target }}"
         test -r "{{ item.target }}"
-        test "$(findmnt -n -o FSTYPE --target "{{ item.target }}")" = cifs
+        test "$(findmnt -n -o FSTYPE --target "{{ item.target }}" | tail -n 1)" = cifs
         find "{{ item.target }}" -mindepth 0 -maxdepth 0 -print >/dev/null
       args:
         executable: /bin/sh
-      loop: "{{ dg_smb_rom_bindings }}"
+      loop: "{{ dg_smb_rom_mounted_bindings }}"
       loop_control:
         label: "{{ item.system }}"
       changed_when: false
@@ -206,10 +208,10 @@
         set -eu
         {{ dg_in_box }} sh -lc '
           set -eu
-          {% for binding in dg_smb_rom_bindings %}
+          {% for binding in dg_smb_rom_mounted_bindings %}
           test -d "{{ binding.target }}"
           test -r "{{ binding.target }}"
-          test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}")" = cifs
+          test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}" | tail -n 1)" = cifs
           find "{{ binding.target }}" -mindepth 0 -maxdepth 0 -print >/dev/null
           {% endfor %}
         '
@@ -230,10 +232,10 @@
         set -eu
         {{ dg_in_box }} sh -lc '
           set -eu
-          {% for binding in dg_smb_rom_bindings %}
+          {% for binding in dg_smb_rom_mounted_bindings %}
           test -d "{{ binding.target }}"
           test -r "{{ binding.target }}"
-          test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}")" = cifs
+          test "$(findmnt -n -o FSTYPE --target "{{ binding.target }}" | tail -n 1)" = cifs
           find "{{ binding.target }}" -mindepth 0 -maxdepth 0 -print >/dev/null
           {% endfor %}
         '

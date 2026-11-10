@@ -20,7 +20,7 @@ dg_smb_rom_mount_options: >-
 # or bind-mounted home.
 dg_smb_rom_restart_box_on_visibility_failure: true
 
-# One source of truth for the four mounted systems, ES-DE paths, package
+# One source of truth for the console systems, ES-DE paths, package
 # checks, and host launchers.  Do not add firmware, keys, BIOS, or staging
 # directories here: this role maps game-library directories only.
 dg_smb_rom_bindings:
@@ -52,3 +52,10 @@ dg_smb_rom_bindings:
     command: cemu
     package: cemu-bin
     launcher: gaming-cemu.desktop
+
+# Which bindings are actually backed by the share.  Override in host_vars when
+# the share lacks a system (e.g. no ps4/ directory); unlisted systems keep
+# their local EmuDeck directory and are not mounted.
+dg_smb_rom_systems: [switch, ps3, ps4, wiiu]
+dg_smb_rom_mounted_bindings: >-
+  {{ dg_smb_rom_bindings | selectattr('system', 'in', dg_smb_rom_systems) | list }}
